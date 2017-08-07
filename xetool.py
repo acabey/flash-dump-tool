@@ -9,8 +9,9 @@ modifications (encrypt, decrypt, etc.) as and return the modified data
 """
 
 import sys, struct, os
-import hmac, sha, struct, sys
+import hmac
 import Crypto.Cipher.ARC4 as RC4
+from hashlib import sha1 as sha
 
 #import ipdb
 
@@ -220,7 +221,7 @@ class CE(Bootloader):
         self.block_encrypted = block_encrypted
         self.data = self.block_encrypted
         self.header = self.block_encrypted[0:Bootloader.HEADER_SIZE]
-        Bootloader.__init(self, self.header)
+        Bootloader.__init__(self, self.header)
         self.key = None
 
     def decrypt_CE(self, cd):
@@ -247,7 +248,7 @@ class CF(Bootloader):
         self.block_encrypted = block_encrypted
         self.data = self.block_encrypted
         self.header = self.block_encrypted[0:Bootloader.HEADER_SIZE]
-        Bootloader.__init(self, self.header)
+        Bootloader.__init__(self, self.header)
 
     def zeropair_CF(self):
         self.data = self.data[0:0x21c] + "\0" * 4 + self.data[0x220:]
@@ -266,10 +267,10 @@ class CF(Bootloader):
         return cf
    
     def encrypt_CF(CF, random):
-    	secret = secret_1BL
-    	key = hmac.new(secret, random, sha).digest()[0:0x10]
-    	self.key = self.data[0x330:0x330+0x10]
-    	cf = self.data[0:0x20] + random + RC4.new(key).encrypt(self.data[0x30:])
+        secret = secret_1BL
+        key = hmac.new(secret, random, sha).digest()[0:0x10]
+        self.key = self.data[0x330:0x330+0x10]
+        cf = self.data[0:0x20] + random + RC4.new(key).encrypt(self.data[0x30:])
         self.data = cf
         return cf, self.key
     
@@ -303,6 +304,23 @@ def main(argv):
     if not target:
         sys.exit(1)
 
+    """
+
+    - open file
+    - read NAND header for SMC offset / length
+    - read SMC into object
+    - read SB offset from NAND header
+    - read SB length from SB header
+    - read SB into object
+    - read SC offset / length from header
+    - read SC into object
+    - read SD offset / length from header
+    - read SD into object
+    - read SE offset / length from header
+    - read SE into object
+
+    """
+
     # Parse file header
     with open(target, 'rb') as image:
         MAX_READ = os.path.getsize(target)
@@ -322,69 +340,91 @@ def main(argv):
         if nand.copyright[0:1]+nand.copyright[11:] != NANDHeader.MS_COPYRIGHT[0:1]+NANDHeader.MS_COPYRIGHT[11:]:
             print('** Warning: failed copyright notice check invalid or custom image')
         
-        currentoffset += nand.sboffset
 
-        # Move on to 2BL
+        # read SB offset from NAND header
+
+        currentoffset += nand.sboffset
+        
         if currentoffset + Bootloader.HEADER_SIZE < MAX_READ:
+            # read SB length from SB header
             image.seek(currentoffset, 0)
-            headerdata = image.read(Bootloader.HEADER_SIZE)
-            sb = Bootloader(headerdata)
+            sblength = Bootloader(image.read(Bootloader.HEADER_SIZE)).length
+
+            # read SB into object
+            image.seek(currentoffset, 0)
+            sbdata = image.read(sblength)
+            sb = CB(sbdata)
 
             # Validate SB
-            ##print(sb)
             print('=== ' + str(hex(currentoffset)) + ' ===\n' + str(sb))
             
             currentoffset += sb.length
 
+
         # 3BL
         if currentoffset + Bootloader.HEADER_SIZE < MAX_READ:
+            # read SC offset / length from header
             image.seek(currentoffset, 0)
-            headerdata = image.read(Bootloader.HEADER_SIZE)
-            sc = Bootloader(headerdata)
+            sclength = Bootloader(image.read(Bootloader.HEADER_SIZE)).length
+
+            # read SC into object
+            image.seek(currentoffset, 0)
+            ###scdata = image.read(sclength)
+            scdata = image.read(Bootloader.HEADER_SIZE)
+            # TODO Implement SC; however, the whole CX vs SX has to be re-thought
+            sc = Bootloader(scdata)
 
             # Validate SC
-            ##print(sc)
             print('=== ' + str(hex(currentoffset)) + ' ===\n' + str(sc))
             
             currentoffset += sc.length
 
+
         # 4BL
         if currentoffset + Bootloader.HEADER_SIZE < MAX_READ:
+            # read SD offset / length from header
             image.seek(currentoffset, 0)
-            headerdata = image.read(Bootloader.HEADER_SIZE)
-            sd = Bootloader(headerdata)
+            sdlength = Bootloader(image.read(Bootloader.HEADER_SIZE)).length
+
+            # read SD into object
+            image.seek(currentoffset, 0)
+            sddata = image.read(sdlength)
+            sd = CD(sddata)
 
             # Validate SD
-            ##print(sd)
             print('=== ' + str(hex(currentoffset)) + ' ===\n' + str(sd))
             
             currentoffset += sd.length
 
+
         # 5BL
         if currentoffset + Bootloader.HEADER_SIZE < MAX_READ:
+            # read SE offset / length from header
             image.seek(currentoffset, 0)
-            headerdata = image.read(Bootloader.HEADER_SIZE)
-            se = Bootloader(headerdata)
+            selength = Bootloader(image.read(Bootloader.HEADER_SIZE)).length
+
+            # read SE into object
+            image.seek(currentoffset, 0)
+            sedata = image.read(selength)
+            se = CE(sedata)
 
             # Validate SE
-            ##print(se)
             print('=== ' + str(hex(currentoffset)) + ' ===\n' + str(se))
             
             currentoffset += se.length
 
-        # 6BL
-        # This will not exist in shadowboot files, just testing algorithm
-        if currentoffset + Bootloader.HEADER_SIZE < MAX_READ:
-            image.seek(currentoffset, 0)
-            headerdata = image.read(Bootloader.HEADER_SIZE)
-            sf = Bootloader(headerdata)
-
-            # Validate SF
-            ##print(sf)
-            print('=== ' + str(hex(currentoffset)) + ' ===\n' + str(sf))
-            
-            currentoffset += sf.length
-
+##        # 6BL
+##        # This will not exist in shadowboot files, just testing algorithm
+##        if currentoffset + Bootloader.HEADER_SIZE < MAX_READ:
+##            image.seek(currentoffset, 0)
+##            headerdata = image.read(Bootloader.HEADER_SIZE)
+##            sf = Bootloader(headerdata)
+##
+##            # Validate SF
+##            ##print(sf)
+##            print('=== ' + str(hex(currentoffset)) + ' ===\n' + str(sf))
+##            
+##            currentoffset += sf.length
 
     exit(0)
 
