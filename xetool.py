@@ -157,12 +157,14 @@ class CB(Bootloader):
         secret = SECRET_1BL
         key = hmac.new(secret, self.salt, sha).digest()[0:0x10]
         cb = self.data[0:0x10] + key + RC4.new(key).decrypt(self.data[0x20:])
+        self.data = cb
         return cb
 
     def encrypt_CB(self, random):
         secret = SECRET_1BL
         key = hmac.new(secret, random, sha).digest()[0:0x10]
         cb = self.data[0:0x10] + random + RC4.new(key).encrypt(self.data[0x20:])
+        self.data = cb
         self.key = key
         return cb, key
 
@@ -256,31 +258,44 @@ class CF(Bootloader):
     Need to look into these salt(?) values from the CF and CG headers
     Document CF structure as it is apparently very different
     """
-    def decrypt_CF(CF):
-        secret = secret_1BL
-        key = hmac.new(secret, CF[0x20:0x30], sha).digest()[0:0x10]
-        CF = CF[0:0x20] + key + RC4.new(key).decrypt(CF[0x30:])
-        return CF
-    
-    def decrypt_CG(CG, CF):
-        secret = CF[0x330:0x330+0x10]
-        key = hmac.new(secret, CG[0x10:0x20], sha).digest()[0:0x10]
-        CG = CG[:0x10] + key + RC4.new(key).decrypt(CG[0x20:])
-        return CG
-    
+    def decrypt_CF(self):
+        secret = Bootloader.SECRET_1BL
+        key = hmac.new(secret, self.data[0x20:0x30], sha).digest()[0:0x10]
+        cf = self.data[0:0x20] + key + RC4.new(key).decrypt(self.data[0x30:])
+        self.data = cf
+        return cf
+   
     def encrypt_CF(CF, random):
-        secret = secret_1BL
-        key = hmac.new(secret, random, sha).digest()[0:0x10]
-        CF_key = CF[0x330:0x330+0x10]
-        CF = CF[0:0x20] + random + RC4.new(key).encrypt(CF[0x30:])
-        return CF, CF_key
+    	secret = secret_1BL
+    	key = hmac.new(secret, random, sha).digest()[0:0x10]
+    	self.key = self.data[0x330:0x330+0x10]
+    	cf = self.data[0:0x20] + random + RC4.new(key).encrypt(self.data[0x30:])
+        self.data = cf
+        return cf, self.key
     
-    def encrypt_CG(CG, CF_key, random):
-        secret = CF_key
-        key = hmac.new(secret, random, sha).digest()[0:0x10]
-        CG = CG[:0x10] + random + RC4.new(key).encrypt(CG[0x20:])
-        return CG
     
+class CG(Bootloader):
+
+    def __init__(self, block_encrypted):
+        self.block_encrypted = block_encrypted
+        self.data = self.block_encrypted
+        self.header = self.block_encrypted[0:Bootloader.HEADER_SIZE]
+        Bootloader.__init(self, self.header)
+
+    def decrypt_CG(self, cf):
+        secret = cf.key
+        key = hmac.new(secret, CG[0x10:0x20], sha).digest()[0:0x10]
+        cg = self.data[:0x10] + key + RC4.new(key).decrypt(self.data[0x20:])
+        self.data = cg
+        return cg
+    
+    def encrypt_CG(self, cf, random):
+        secret = cf.key
+        key = hmac.new(secret, random, sha).digest()[0:0x10]
+        cg = self.data[:0x10] + random + RC4.new(key).encrypt(self.data[0x20:])
+        self.data = cg
+        return cg
+
 
 def main(argv):
     target = argv[1] if len(sys.argv) > 1 else None
