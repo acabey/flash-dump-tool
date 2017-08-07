@@ -98,7 +98,7 @@ class SMC():
 class Bootloader():
 
     HEADER_SIZE = 0x20
-    SECRET_1BL = '\xDD\x88\xAD\x0C\x9E\xD6\x69\xE7\xB5\x67\x94\xFB\x68\x56\x3E\xFA'
+    SECRET_1BL = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 
     def __init__(self, header):
         header = struct.unpack('>2s3H2I16s', header)
@@ -150,12 +150,16 @@ class CB(Bootloader):
         Bootloader.__init__(self, self.header)
         self.key = None
 
+    def updateKey(self, random):
+        secret = Bootloader.SECRET_1BL
+        self.key = hmac.new(secret, random, sha).digest()[0:0x10]
+
     def zeropair_CB(self):
         self.data = self.data[0:0x20] + "\0" * 0x20 + self.data[0x40:]
         return self.data
 
     def decrypt_CB(self):
-        secret = SECRET_1BL
+        secret = Bootloader.SECRET_1BL
         key = hmac.new(secret, self.salt, sha).digest()[0:0x10]
         cb = self.data[0:0x10] + key + RC4.new(key).decrypt(self.data[0x20:])
         self.data = cb
@@ -179,6 +183,11 @@ class CD(Bootloader):
         Bootloader.__init__(self, self.header)
         self.key = None
 
+    def updateKey(self, cb, random):
+        secret = cb.key
+        assert secret is not None, 'No key given to updateKey'
+        self.key = hmac.new(secret, random, sha).digest()[0:0x10]
+
     def __getitem__(self, key):
         return self.data[key]
 
@@ -193,7 +202,7 @@ class CD(Bootloader):
     # disable this when this is a zero-paired image.
     #   assert cpukey or build(CD) < 1920
         if self.build > 1920 and not cpukey:
-            print('Warning: decrypting CD > 1920 without CPU key')
+            print('** Warning: decrypting CD > 1920 without CPU key')
         #secret = CB[0x10:0x20]
         secret = cb.key
         assert secret is not None, 'No key given to decrypt_CD'
@@ -425,6 +434,36 @@ def main(argv):
 ##            print('=== ' + str(hex(currentoffset)) + ' ===\n' + str(sf))
 ##            
 ##            currentoffset += sf.length
+
+    random = bytes('\0' * 16, 'ascii')
+
+    # Decrypt and export encrypted SB
+    with open('output/SB_' + str(sb.build) + '_enc.bin', 'wb') as sbout:
+        sbout.write(sb.block_encrypted)
+
+    # Decrypt and export decrypted SB
+    with open('output/SB_' + str(sb.build) + '_dec.bin', 'wb') as sbout:
+        sbout.write(sb.decrypt_CB())
+
+    sb.updateKey(random)
+
+    # Decrypt and export decrypted SD
+    with open('output/SD_' + str(sd.build) + '_enc.bin', 'wb') as sdout:
+        sdout.write(sd.block_encrypted)
+
+    # Decrypt and export decrypted SD
+    with open('output/SD_' + str(sd.build) + '_dec.bin', 'wb') as sdout:
+        sdout.write(sd.decrypt_CD(sb))
+
+    sd.updateKey(sb, random)
+
+    # Decrypt and export decrypted SE
+    with open('output/SE_' + str(se.build) + '_enc.bin', 'wb') as seout:
+        seout.write(se.block_encrypted)
+
+    # Decrypt and export decrypted SE
+    with open('output/SE_' + str(se.build) + '_dec.bin', 'wb') as seout:
+        seout.write(se.decrypt_CE(sd))
 
     exit(0)
 
