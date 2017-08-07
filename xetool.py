@@ -301,12 +301,11 @@ def main(argv):
 
         # Validate image
         if nand.magic != NANDHeader.MAGIC_BYTES:
-            print('Failed magic bytes check: invalid image')
+            print('** Failure: magic bytes check: invalid image')
             exit(1)
 
         if nand.copyright[0:1]+nand.copyright[11:] != NANDHeader.MS_COPYRIGHT[0:1]+NANDHeader.MS_COPYRIGHT[11:]:
-            print('Failed copyright notice check: invalid image')
-            exit(1)
+            print('** Warning: failed copyright notice check invalid or custom image')
         
         currentoffset += nand.sboffset
 
