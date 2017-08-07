@@ -1,8 +1,10 @@
 #/bin/python3
 
-import sys
-import struct
-import os
+# A lot of this code is taken from https://github.com/Free60Project/tools/blob/master/imgbuild/build.py
+
+import sys, struct, os
+import hmac, sha, struct, sys
+import Crypto.Cipher.ARC4 as RC4
 
 #import ipdb
 
@@ -13,6 +15,9 @@ class NANDHeader():
     MS_COPYRIGHT = b'\xa9 2004-2011 Microsoft Corporation. All rights reserved.\x00'
 
     def __init__(self, header):
+#        self.magic, self.build, self.unknown0x4, self.unknown0x6, self.sboffset, self.cf1offset,
+#        self.copyright, self.unknown0x60, self.unknown0x64, self.unknown0x68, self.kvoffset,
+#        self.metadatastyle, self.unknown0x72, self.smclength, self.smcoffset = struct.unpack('>2s3H2I56s24s4I2H3I', header)
         header = struct.unpack('>2s3H2I56s24s4I2H3I', header)
         self.magic = header[0]
         self.build = header[1]
@@ -52,9 +57,35 @@ class NANDHeader():
         ret += str(hex(self.smcoffset))
         return ret
 
+class SMC():
+
+    self.KEY = [0x42, 0x75, 0x4e, 0x79]
+    
+    def decrypt_SMC(SMC):
+        res = ""
+        for i in range(len(SMC)):
+            j = ord(SMC[i])
+            mod = j * 0xFB
+            res += chr(j ^ (self.KEY[i&3] & 0xFF))
+            self.KEY[(i+1)&3] += mod
+            self.KEY[(i+2)&3] += mod >> 8
+        return res
+    
+    def encrypt_SMC(SMC):
+        res = ""
+        for i in range(len(SMC)):
+            j = ord(SMC[i]) ^ (self.KEY[i&3] & 0xFF)
+            mod = j * 0xFB
+            res += chr(j)
+            self.KEY[(i+1)&3] += mod
+            self.KEY[(i+2)&3] += mod >> 8
+        return res
+
+
 class Bootloader():
 
     HEADER_SIZE = 0x20
+    SECRET_1BL = '\xDD\x88\xAD\x0C\x9E\xD6\x69\xE7\xB5\x67\x94\xFB\x68\x56\x3E\xFA'
 
     def __init__(self, header):
         header = struct.unpack('>2s3H2I16s', header)
@@ -66,6 +97,15 @@ class Bootloader():
         self.entrypoint = header[4]
         self.length = header[5]
         self.salt = header[6]
+
+    def __getitem__(self, key):
+        return self.data[key]
+
+    def __setitem__(self, key, value):
+        self.data[key] = value
+
+    def __repr__(self):
+        return 'Bootloader({})'.format(self.data)
 
     def __str__(self):
         ret = ''
@@ -86,6 +126,141 @@ class Bootloader():
     
     def pack(self):
         return struct.pack('>2p3H2I16p', bytes(self.name), self.build, self.pairing, self.flags, self.entrypoint, self.length, bytes(self.salt))
+
+
+class CB(Bootloader):
+
+    def __init__(self, block_encrypted):
+        self.block_encrypted = block_encrypted
+        self.data = self.block_encrypted
+        self.header = self.block_encrypted[0:Bootloader.HEADER_SIZE]
+        Bootloader.__init__(self, self.header)
+        self.key = None
+
+    def decrypt_CB(self):
+        secret = SECRET_1BL
+        key = hmac.new(secret, self.salt, sha).digest()[0:0x10]
+        cb = self.data[0:0x10] + key + RC4.new(key).decrypt(self.data[0x20:])
+        return cb
+
+    def encrypt_CB(self, random):
+        secret = SECRET_1BL
+        key = hmac.new(secret, random, sha).digest()[0:0x10]
+        cb = self.data[0:0x10] + random + RC4.new(key).encrypt(self.data[0x20:])
+        self.key = key
+        return cb, key
+
+    
+class CD(Bootloader):
+
+    def __init__(self, block_encrypted):
+        self.block_encrypted = block_encrypted
+        self.data = self.block_encrypted
+        self.header = self.block_encrypted[0:Bootloader.HEADER_SIZE]
+        Bootloader.__init__(self, self.header)
+        self.key = None
+
+    def __getitem__(self, key):
+        return self.data[key]
+
+    def __setitem__(self, key, value):
+        self.data[key] = value
+
+    def __repr__(self):
+        return 'MyArray({})'.format(self.data)
+
+    def decrypt_CD(self, cb, cpukey = None):
+    # enable this code if you want to extract CD from a flash image and you know the cup key.
+    # disable this when this is a zero-paired image.
+    #   assert cpukey or build(CD) < 1920
+        if self.build > 1920 and not cpukey:
+            print('Warning: decrypting CD > 1920 without CPU key')
+        #secret = CB[0x10:0x20]
+        secret = cb.key
+        assert secret is not None, 'No key given to decrypt_CD'
+        #key = hmac.new(secret, self.salt, sha).digest()[0:0x10]
+        key = hmac.new(secret, self.salt, sha).digest()[0:0x10]
+        if cpukey:
+                key = hmac.new(cpukey, key, sha).digest()[0:0x10]
+        cd = self.data[0:0x10] + key + RC4.new(key).decrypt(self.data[0x20:])
+        self.data = cd
+        return cd
+
+    def encrypt_CD(self, cb, random):
+        secret = cb.key
+        assert secret is not None, 'No key given to encrypt_CD'
+        key = hmac.new(secret, random, sha).digest()[0:0x10]
+        cd = self.data[0:0x10] + random + RC4.new(key).encrypt(self.data[0x20:])
+        self.data = cd
+        self.key = key
+        return cd, key
+    
+
+class CE(Bootloader):
+
+    def __init__(self, block_encrypted):
+        self.block_encrypted = block_encrypted
+        self.data = self.block_encrypted
+        self.header = self.block_encrypted[0:Bootloader.HEADER_SIZE]
+        Bootloader.__init(self, self.header)
+        self.key = None
+
+    def decrypt_CE(self, cd):
+        secret = cd.key
+        assert secret is not None, 'No key given to decrypt_CE'
+        key = hmac.new(secret, self.salt, sha).digest()[0:0x10]
+        ce = self.data[0:0x10] + key + RC4.new(key).decrypt(self.data[0x20:])
+        self.data = ce
+        return ce
+    
+    def encrypt_CE(self, cd, random):
+        secret = cd.key
+        assert secret is not None, 'No key given to encrypt_CE'
+        key = hmac.new(secret, random, sha).digest()[0:0x10]
+        ce = self.data[0:0x10] + random + RC4.new(key).encrypt(self.data[0x20:])
+        self.data = ce
+        self.key = key # This is never used, storing just to be complete
+        return ce
+
+
+class CF(Bootloader):
+
+    def __init__(self, block_encrypted):
+        self.block_encrypted = block_encrypted
+        self.data = self.block_encrypted
+        self.header = self.block_encrypted[0:Bootloader.HEADER_SIZE]
+        Bootloader.__init(self, self.header)
+
+    # TODO
+    """
+    Need to look into these salt(?) values from the CF and CG headers
+    Document CF structure as it is apparently very different
+    """
+    def decrypt_CF(CF):
+        secret = secret_1BL
+        key = hmac.new(secret, CF[0x20:0x30], sha).digest()[0:0x10]
+        CF = CF[0:0x20] + key + RC4.new(key).decrypt(CF[0x30:])
+        return CF
+    
+    def decrypt_CG(CG, CF):
+        secret = CF[0x330:0x330+0x10]
+        key = hmac.new(secret, CG[0x10:0x20], sha).digest()[0:0x10]
+        CG = CG[:0x10] + key + RC4.new(key).decrypt(CG[0x20:])
+        return CG
+    
+    def encrypt_CF(CF, random):
+        secret = secret_1BL
+        key = hmac.new(secret, random, sha).digest()[0:0x10]
+        CF_key = CF[0x330:0x330+0x10]
+        CF = CF[0:0x20] + random + RC4.new(key).encrypt(CF[0x30:])
+        return CF, CF_key
+    
+    def encrypt_CG(CG, CF_key, random):
+        secret = CF_key
+        key = hmac.new(secret, random, sha).digest()[0:0x10]
+        CG = CG[:0x10] + random + RC4.new(key).encrypt(CG[0x20:])
+        return CG
+    
 
 def main(argv):
     target = argv[1] if len(sys.argv) > 1 else None
