@@ -1,6 +1,12 @@
 #/bin/python3
 
 # A lot of this code is taken from https://github.com/Free60Project/tools/blob/master/imgbuild/build.py
+"""
+
+I need to decide on the scheme for modifying data. Right now I do both inline
+modifications (encrypt, decrypt, etc.) as and return the modified data
+
+"""
 
 import sys, struct, os
 import hmac, sha, struct, sys
@@ -59,26 +65,32 @@ class NANDHeader():
 
 class SMC():
 
-    self.KEY = [0x42, 0x75, 0x4e, 0x79]
+    SMC_KEY = [0x42, 0x75, 0x4e, 0x79]
     
-    def decrypt_SMC(SMC):
+    def __init__(self, data):
+        self.block_encrypted = data
+        self.data = None
+
+    def decrypt_SMC(self):
         res = ""
-        for i in range(len(SMC)):
-            j = ord(SMC[i])
+        for i in range(len(self.data)):
+            j = ord(self.data[i])
             mod = j * 0xFB
-            res += chr(j ^ (self.KEY[i&3] & 0xFF))
-            self.KEY[(i+1)&3] += mod
-            self.KEY[(i+2)&3] += mod >> 8
+            res += chr(j ^ (SMC.SMC_KEY[i&3] & 0xFF))
+            SMC.SMC_KEY[(i+1)&3] += mod
+            SMC.SMC_KEY[(i+2)&3] += mod >> 8
+        self.data = res
         return res
     
-    def encrypt_SMC(SMC):
+    def encrypt_SMC(self):
         res = ""
-        for i in range(len(SMC)):
-            j = ord(SMC[i]) ^ (self.KEY[i&3] & 0xFF)
+        for i in range(len(self.data)):
+            j = ord(self.data[i]) ^ (SMC.SMC_KEY[i&3] & 0xFF)
             mod = j * 0xFB
             res += chr(j)
-            self.KEY[(i+1)&3] += mod
-            self.KEY[(i+2)&3] += mod >> 8
+            SMC.SMC_KEY[(i+1)&3] += mod
+            SMC.SMC_KEY[(i+2)&3] += mod >> 8
+        self.data = res
         return res
 
 
@@ -136,6 +148,10 @@ class CB(Bootloader):
         self.header = self.block_encrypted[0:Bootloader.HEADER_SIZE]
         Bootloader.__init__(self, self.header)
         self.key = None
+
+    def zeropair_CB(self):
+        self.data = self.data[0:0x20] + "\0" * 0x20 + self.data[0x40:]
+        return self.data
 
     def decrypt_CB(self):
         secret = SECRET_1BL
@@ -230,6 +246,10 @@ class CF(Bootloader):
         self.data = self.block_encrypted
         self.header = self.block_encrypted[0:Bootloader.HEADER_SIZE]
         Bootloader.__init(self, self.header)
+
+    def zeropair_CF(self):
+        self.data = self.data[0:0x21c] + "\0" * 4 + self.data[0x220:]
+        return self.data
 
     # TODO
     """
