@@ -1,6 +1,8 @@
 #!/bin/python3
 
 import struct, hmac
+import Crypto.Cipher.ARC4 as RC4
+from hashlib import sha1 as sha
 
 class Bootloader():
 
@@ -65,14 +67,12 @@ class CB(Bootloader):
 
     def zeropair_CB(self):
         self.data = self.data[0:0x20] + "\0" * 0x20 + self.data[0x40:]
-        return self.data
 
     def decrypt_CB(self):
         secret = Bootloader.SECRET_1BL
         key = hmac.new(secret, self.salt, sha).digest()[0:0x10]
         cb = self.data[0:0x10] + key + RC4.new(key).decrypt(self.data[0x20:])
         self.data = cb
-        return cb
 
     def encrypt_CB(self, random):
         secret = SECRET_1BL
@@ -80,7 +80,6 @@ class CB(Bootloader):
         cb = self.data[0:0x10] + random + RC4.new(key).encrypt(self.data[0x20:])
         self.data = cb
         self.key = key
-        return cb, key
 
     
 class CD(Bootloader):
@@ -124,7 +123,6 @@ class CD(Bootloader):
         cd = self.data[0:0x10] + key + RC4.new(key).decrypt(self.data[0x20:])
 
         self.data = cd
-        return cd
 
     def encrypt_CD(self, cb, random):
         secret = cb.key
@@ -133,7 +131,6 @@ class CD(Bootloader):
         cd = self.data[0:0x10] + random + RC4.new(key).encrypt(self.data[0x20:])
         self.data = cd
         self.key = key
-        return cd, key
     
 
 class CE(Bootloader):
@@ -151,7 +148,6 @@ class CE(Bootloader):
         key = hmac.new(secret, self.salt, sha).digest()[0:0x10]
         ce = self.data[0:0x10] + key + RC4.new(key).decrypt(self.data[0x20:])
         self.data = ce
-        return ce
     
     def encrypt_CE(self, cd, random):
         secret = cd.key
@@ -160,7 +156,27 @@ class CE(Bootloader):
         ce = self.data[0:0x10] + random + RC4.new(key).encrypt(self.data[0x20:])
         self.data = ce
         self.key = key # This is never used, storing just to be complete
-        return ce
+
+    """
+    Decompress and extract kernel
+    """
+    def extractKernel(self):
+        # Pull compressed kernel from unencrypted image
+
+        # Decompress
+        pass
+
+    """
+    Replace the existing kernel with the provided unencypted, uncompressed replacement
+    """
+    def replaceKernel(self, replacement):
+        # Compress replacement
+
+        # Copy metadata
+        # Write new length
+
+        # Copy new kernel
+        pass
 
 
 class CF(Bootloader):
@@ -173,19 +189,17 @@ class CF(Bootloader):
 
     def zeropair_CF(self):
         self.data = self.data[0:0x21c] + "\0" * 4 + self.data[0x220:]
-        return self.data
 
     # TODO
     """
     Need to look into these salt(?) values from the CF and CG headers
-    Document CF structure as it is apparently very different
+    Document CF structure as it is apparently different
     """
     def decrypt_CF(self):
         secret = Bootloader.SECRET_1BL
         key = hmac.new(secret, self.data[0x20:0x30], sha).digest()[0:0x10]
         cf = self.data[0:0x20] + key + RC4.new(key).decrypt(self.data[0x30:])
         self.data = cf
-        return cf
    
     def encrypt_CF(CF, random):
         secret = secret_1BL
@@ -193,7 +207,6 @@ class CF(Bootloader):
         self.key = self.data[0x330:0x330+0x10]
         cf = self.data[0:0x20] + random + RC4.new(key).encrypt(self.data[0x30:])
         self.data = cf
-        return cf, self.key
     
     
 class CG(Bootloader):
@@ -209,12 +222,10 @@ class CG(Bootloader):
         key = hmac.new(secret, CG[0x10:0x20], sha).digest()[0:0x10]
         cg = self.data[:0x10] + key + RC4.new(key).decrypt(self.data[0x20:])
         self.data = cg
-        return cg
     
     def encrypt_CG(self, cf, random):
         secret = cf.key
         key = hmac.new(secret, random, sha).digest()[0:0x10]
         cg = self.data[:0x10] + random + RC4.new(key).encrypt(self.data[0x20:])
         self.data = cg
-        return cg
 

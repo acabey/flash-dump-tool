@@ -23,6 +23,7 @@ def main(argv):
         nand = NANDImage(image, os.path.getsize(target))
 
     nand.printMetadata()
+    nand.exportParts()
 
 if __name__ == '__main__':
     main(sys.argv)

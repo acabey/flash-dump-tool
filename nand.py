@@ -1,8 +1,6 @@
 #!/bin/python3
 
 import struct
-import Crypto.Cipher.ARC4 as RC4
-from hashlib import sha1 as sha
 
 from bootloader import Bootloader, CB, CD, CE, CF, CG
 
@@ -105,38 +103,36 @@ class NANDImage():
             print('=== ' + str(hex(bl.offset)) + ' ===\n' + str(bl))
 
     def exportParts(self):
-
+        
         random = bytes('\0' * 16, 'ascii')
 
-        for bl in self.bootloaders:
-            pass
-            # Decrypt and export encrypted SB
-            with open('output/'+bl.name+'_' + str(bl.build) + '_enc.bin', 'wb') as sbout:
-                sbout.write(sb.block_encrypted)
+        # Decrypt and export encrypted BL
+        with open('output/'+self.sb.name.decode('ascii') +'_' + str(self.sb.build) + '_enc.bin', 'wb') as sbout:
+            sbout.write(self.sb.block_encrypted)
 
-            # Decrypt and export decrypted SB
-            with open('output/SB_' + str(sb.build) + '_dec.bin', 'wb') as sbout:
-                sbout.write(sb.decrypt_CB())
+        # Decrypt and export decrypted BL
+        with open('output/'+self.sb.name.decode('ascii') +'_' + str(self.sb.build) + '_dec.bin', 'wb') as sbout:
+            sbout.write(self.sb.decrypt_CB())
 
-        sb.updateKey(random)
+        self.sb.updateKey(random)
 
         # Decrypt and export decrypted SD
-        with open('output/SD_' + str(sd.build) + '_enc.bin', 'wb') as sdout:
-            sdout.write(sd.block_encrypted)
+        with open('output/SD_' + str(self.sd.build) + '_enc.bin', 'wb') as sdout:
+            sdout.write(self.sd.block_encrypted)
 
         # Decrypt and export decrypted SD
-        with open('output/SD_' + str(sd.build) + '_dec.bin', 'wb') as sdout:
-            sdout.write(sd.decrypt_CD(sb))
+        with open('output/SD_' + str(self.sd.build) + '_dec.bin', 'wb') as sdout:
+            sdout.write(self.sd.decrypt_CD(self.sb))
 
-        sd.updateKey(sb, random)
-
-        # Decrypt and export decrypted SE
-        with open('output/SE_' + str(se.build) + '_enc.bin', 'wb') as seout:
-            seout.write(se.block_encrypted)
+        self.sd.updateKey(self.sb, random)
 
         # Decrypt and export decrypted SE
-        with open('output/SE_' + str(se.build) + '_dec.bin', 'wb') as seout:
-            seout.write(se.decrypt_CE(sd))
+        with open('output/SE_' + str(self.se.build) + '_enc.bin', 'wb') as seout:
+            seout.write(self.se.block_encrypted)
+
+        # Decrypt and export decrypted SE
+        with open('output/SE_' + str(self.se.build) + '_dec.bin', 'wb') as seout:
+            seout.write(self.se.decrypt_CE(self.sd))
 
 class NANDHeader():
 
