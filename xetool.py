@@ -13,7 +13,137 @@ import hmac
 import Crypto.Cipher.ARC4 as RC4
 from hashlib import sha1 as sha
 
-#import ipdb
+class NANDImage():
+
+    def __init__(self, image, imagesize):
+        """
+
+        - read NAND header for SMC offset / length
+        - read SMC into object
+        - read SB offset from NAND header
+        - read SB length from SB header
+        - read SB into object
+        - read SC offset / length from header
+        - read SC into object
+        - read SD offset / length from header
+        - read SD into object
+        - read SE offset / length from header
+        - read SE into object
+        
+        """
+        self.bootloaders = []
+
+        currentoffset = 0
+        MAX_READ = imagesize
+        
+        # Read file
+        headerdata = image.read(NANDHeader.HEADER_SIZE)
+        self.nandheader = NANDHeader(headerdata, currentoffset)
+
+        # Validate image
+        self.nandheader.validate()
+
+        # read SB offset from NAND header
+
+        currentoffset += self.nandheader.sboffset
+        
+        if currentoffset + Bootloader.HEADER_SIZE < MAX_READ:
+            # read SB length from SB header
+            image.seek(currentoffset, 0)
+            sblength = Bootloader(image.read(Bootloader.HEADER_SIZE), currentoffset).length
+
+            # read SB into object
+            image.seek(currentoffset, 0)
+            sbdata = image.read(sblength)
+            self.sb = CB(sbdata, currentoffset)
+            self.bootloaders.append(self.sb)
+
+            currentoffset += self.sb.length
+
+        # 3BL
+        if currentoffset + Bootloader.HEADER_SIZE < MAX_READ:
+            # read SC offset / length from header
+            image.seek(currentoffset, 0)
+            sclength = Bootloader(image.read(Bootloader.HEADER_SIZE), currentoffset).length
+
+            # read SC into object
+            image.seek(currentoffset, 0)
+            ###scdata = image.read(sclength)
+            scdata = image.read(Bootloader.HEADER_SIZE)
+            # TODO Implement SC; however, the whole CX vs SX has to be re-thought
+            self.sc = Bootloader(scdata, currentoffset)
+            self.bootloaders.append(self.sc)
+
+            currentoffset += self.sc.length
+
+
+        # 4BL
+        if currentoffset + Bootloader.HEADER_SIZE < MAX_READ:
+            # read SD offset / length from header
+            image.seek(currentoffset, 0)
+            sdlength = Bootloader(image.read(Bootloader.HEADER_SIZE), currentoffset).length
+
+            # read SD into object
+            image.seek(currentoffset, 0)
+            sddata = image.read(sdlength)
+            self.sd = CD(sddata, currentoffset)
+            self.bootloaders.append(self.sd)
+
+            currentoffset += self.sd.length
+
+
+        # 5BL
+        if currentoffset + Bootloader.HEADER_SIZE < MAX_READ:
+            # read SE offset / length from header
+            image.seek(currentoffset, 0)
+            selength = Bootloader(image.read(Bootloader.HEADER_SIZE), currentoffset).length
+
+            # read SE into object
+            image.seek(currentoffset, 0)
+            sedata = image.read(selength)
+            self.se = CE(sedata, currentoffset)
+            self.bootloaders.append(self.se)
+
+            currentoffset += self.se.length
+
+    def printMetadata(self):
+        print('=== ' + str(hex(self.nandheader.offset)) + ' ===\n' + str(self.nandheader))
+        for bl in self.bootloaders:
+            print('=== ' + str(hex(bl.offset)) + ' ===\n' + str(bl))
+
+    def exportParts(self):
+
+        random = bytes('\0' * 16, 'ascii')
+
+        for bl in self.bootloaders:
+            pass
+            # Decrypt and export encrypted SB
+            with open('output/'+bl.name+'_' + str(bl.build) + '_enc.bin', 'wb') as sbout:
+                sbout.write(sb.block_encrypted)
+
+            # Decrypt and export decrypted SB
+            with open('output/SB_' + str(sb.build) + '_dec.bin', 'wb') as sbout:
+                sbout.write(sb.decrypt_CB())
+
+        sb.updateKey(random)
+
+        # Decrypt and export decrypted SD
+        with open('output/SD_' + str(sd.build) + '_enc.bin', 'wb') as sdout:
+            sdout.write(sd.block_encrypted)
+
+        # Decrypt and export decrypted SD
+        with open('output/SD_' + str(sd.build) + '_dec.bin', 'wb') as sdout:
+            sdout.write(sd.decrypt_CD(sb))
+
+        sd.updateKey(sb, random)
+
+        # Decrypt and export decrypted SE
+        with open('output/SE_' + str(se.build) + '_enc.bin', 'wb') as seout:
+            seout.write(se.block_encrypted)
+
+        # Decrypt and export decrypted SE
+        with open('output/SE_' + str(se.build) + '_dec.bin', 'wb') as seout:
+            seout.write(se.decrypt_CE(sd))
 
 class NANDHeader():
 
@@ -21,10 +151,7 @@ class NANDHeader():
     MAGIC_BYTES = b'\xFF\x4F'
     MS_COPYRIGHT = b'\xa9 2004-2011 Microsoft Corporation. All rights reserved.\x00'
 
-    def __init__(self, header):
-#        self.magic, self.build, self.unknown0x4, self.unknown0x6, self.sboffset, self.cf1offset,
-#        self.copyright, self.unknown0x60, self.unknown0x64, self.unknown0x68, self.kvoffset,
-#        self.metadatastyle, self.unknown0x72, self.smclength, self.smcoffset = struct.unpack('>2s3H2I56s24s4I2H3I', header)
+    def __init__(self, header, currentoffset):
         header = struct.unpack('>2s3H2I56s24s4I2H3I', header)
         self.magic = header[0]
         self.build = header[1]
@@ -34,7 +161,7 @@ class NANDHeader():
         self.cf1offset = header[5]
         self.copyright = header[6]
         self.unknown0x60 = header[8]
-        self.uknown0x64 = header[9]
+        self.unknown0x64 = header[9]
         self.unknown0x68 = header[10]
         self.kvoffset = header[11]
         self.metadatastyle = header[12]
@@ -42,6 +169,8 @@ class NANDHeader():
         self.unknown0x74 = header[14]
         self.smclength = header[15]
         self.smcoffset = header[16]
+
+        self.offset = currentoffset
 
     def __str__(self):
         ret = ''
@@ -64,13 +193,24 @@ class NANDHeader():
         ret += str(hex(self.smcoffset))
         return ret
 
+    def validate(self):
+        if self.copyright[0:1]+self.copyright[11:] != NANDHeader.MS_COPYRIGHT[0:1]+NANDHeader.MS_COPYRIGHT[11:]:
+            print('** Warning: failed copyright notice check invalid or custom image')
+
+        if self.magic != NANDHeader.MAGIC_BYTES:
+            print('** Failure: magic bytes check: invalid image')
+            return False
+
+
 class SMC():
 
     SMC_KEY = [0x42, 0x75, 0x4e, 0x79]
     
-    def __init__(self, data):
+    def __init__(self, data, currentlocation):
         self.block_encrypted = data
         self.data = None
+        
+        self.offset = currentlocation
 
     def decrypt_SMC(self):
         res = ""
@@ -100,7 +240,7 @@ class Bootloader():
     HEADER_SIZE = 0x20
     SECRET_1BL = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 
-    def __init__(self, header):
+    def __init__(self, header, currentlocation):
         header = struct.unpack('>2s3H2I16s', header)
 
         self.name = header[0]
@@ -110,6 +250,8 @@ class Bootloader():
         self.entrypoint = header[4]
         self.length = header[5]
         self.salt = header[6]
+
+        self.offset = currentlocation
 
     def __getitem__(self, key):
         return self.data[key]
@@ -143,11 +285,11 @@ class Bootloader():
 
 class CB(Bootloader):
 
-    def __init__(self, block_encrypted):
+    def __init__(self, block_encrypted, currentlocation):
         self.block_encrypted = block_encrypted
         self.data = self.block_encrypted
         self.header = self.block_encrypted[0:Bootloader.HEADER_SIZE]
-        Bootloader.__init__(self, self.header)
+        Bootloader.__init__(self, self.header, currentlocation)
         self.key = None
 
     def updateKey(self, random):
@@ -176,11 +318,11 @@ class CB(Bootloader):
     
 class CD(Bootloader):
 
-    def __init__(self, block_encrypted):
+    def __init__(self, block_encrypted, currentlocation):
         self.block_encrypted = block_encrypted
         self.data = self.block_encrypted
         self.header = self.block_encrypted[0:Bootloader.HEADER_SIZE]
-        Bootloader.__init__(self, self.header)
+        Bootloader.__init__(self, self.header, currentlocation)
         self.key = None
 
     def updateKey(self, cb, random):
@@ -203,14 +345,17 @@ class CD(Bootloader):
     #   assert cpukey or build(CD) < 1920
         if self.build > 1920 and not cpukey:
             print('** Warning: decrypting CD > 1920 without CPU key')
-        #secret = CB[0x10:0x20]
+
         secret = cb.key
         assert secret is not None, 'No key given to decrypt_CD'
-        #key = hmac.new(secret, self.salt, sha).digest()[0:0x10]
+
         key = hmac.new(secret, self.salt, sha).digest()[0:0x10]
+
         if cpukey:
-                key = hmac.new(cpukey, key, sha).digest()[0:0x10]
+            key = hmac.new(cpukey, key, sha).digest()[0:0x10]
+
         cd = self.data[0:0x10] + key + RC4.new(key).decrypt(self.data[0x20:])
+
         self.data = cd
         return cd
 
@@ -226,11 +371,11 @@ class CD(Bootloader):
 
 class CE(Bootloader):
 
-    def __init__(self, block_encrypted):
+    def __init__(self, block_encrypted, currentlocation):
         self.block_encrypted = block_encrypted
         self.data = self.block_encrypted
         self.header = self.block_encrypted[0:Bootloader.HEADER_SIZE]
-        Bootloader.__init__(self, self.header)
+        Bootloader.__init__(self, self.header, currentlocation)
         self.key = None
 
     def decrypt_CE(self, cd):
@@ -253,11 +398,11 @@ class CE(Bootloader):
 
 class CF(Bootloader):
 
-    def __init__(self, block_encrypted):
+    def __init__(self, block_encrypted, currentlocation):
         self.block_encrypted = block_encrypted
         self.data = self.block_encrypted
         self.header = self.block_encrypted[0:Bootloader.HEADER_SIZE]
-        Bootloader.__init__(self, self.header)
+        Bootloader.__init__(self, self.header, currentlocation)
 
     def zeropair_CF(self):
         self.data = self.data[0:0x21c] + "\0" * 4 + self.data[0x220:]
@@ -286,11 +431,11 @@ class CF(Bootloader):
     
 class CG(Bootloader):
 
-    def __init__(self, block_encrypted):
+    def __init__(self, block_encrypted, currentlocation):
         self.block_encrypted = block_encrypted
         self.data = self.block_encrypted
         self.header = self.block_encrypted[0:Bootloader.HEADER_SIZE]
-        Bootloader.__init(self, self.header)
+        Bootloader.__init(self, self.header, currentlocation)
 
     def decrypt_CG(self, cf):
         secret = cf.key
@@ -313,189 +458,11 @@ def main(argv):
     if not target:
         sys.exit(1)
 
-    """
-
-    - open file
-    - read NAND header for SMC offset / length
-    - read SMC into object
-    - read SB offset from NAND header
-    - read SB length from SB header
-    - read SB into object
-    - read SC offset / length from header
-    - read SC into object
-    - read SD offset / length from header
-    - read SD into object
-    - read SE offset / length from header
-    - read SE into object
-
-    """
-
     # Parse file header
     with open(target, 'rb') as image:
-        MAX_READ = os.path.getsize(target)
-        currentoffset = 0
-        
-        # Read file
-        headerdata = image.read(NANDHeader.HEADER_SIZE)
-        nand = NANDHeader(headerdata)
+        nand = NANDImage(image, os.path.getsize(target))
 
-        print('=== ' + str(hex(currentoffset)) + ' ===\n' + str(nand))
-
-        # Validate image
-        if nand.magic != NANDHeader.MAGIC_BYTES:
-            print('** Failure: magic bytes check: invalid image')
-            exit(1)
-
-        if nand.copyright[0:1]+nand.copyright[11:] != NANDHeader.MS_COPYRIGHT[0:1]+NANDHeader.MS_COPYRIGHT[11:]:
-            print('** Warning: failed copyright notice check invalid or custom image')
-        
-
-        # read SB offset from NAND header
-
-        currentoffset += nand.sboffset
-        
-        if currentoffset + Bootloader.HEADER_SIZE < MAX_READ:
-            # read SB length from SB header
-            image.seek(currentoffset, 0)
-            sblength = Bootloader(image.read(Bootloader.HEADER_SIZE)).length
-
-            # read SB into object
-            image.seek(currentoffset, 0)
-            sbdata = image.read(sblength)
-            sb = CB(sbdata)
-
-            # Validate SB
-            print('=== ' + str(hex(currentoffset)) + ' ===\n' + str(sb))
-            
-            currentoffset += sb.length
-
-
-        # 3BL
-        if currentoffset + Bootloader.HEADER_SIZE < MAX_READ:
-            # read SC offset / length from header
-            image.seek(currentoffset, 0)
-            sclength = Bootloader(image.read(Bootloader.HEADER_SIZE)).length
-
-            # read SC into object
-            image.seek(currentoffset, 0)
-            ###scdata = image.read(sclength)
-            scdata = image.read(Bootloader.HEADER_SIZE)
-            # TODO Implement SC; however, the whole CX vs SX has to be re-thought
-            sc = Bootloader(scdata)
-
-            # Validate SC
-            print('=== ' + str(hex(currentoffset)) + ' ===\n' + str(sc))
-            
-            currentoffset += sc.length
-
-
-        # 4BL
-        if currentoffset + Bootloader.HEADER_SIZE < MAX_READ:
-            # read SD offset / length from header
-            image.seek(currentoffset, 0)
-            sdlength = Bootloader(image.read(Bootloader.HEADER_SIZE)).length
-
-            # read SD into object
-            image.seek(currentoffset, 0)
-            sddata = image.read(sdlength)
-            sd = CD(sddata)
-
-            # Validate SD
-            print('=== ' + str(hex(currentoffset)) + ' ===\n' + str(sd))
-            
-            currentoffset += sd.length
-
-
-        # 5BL
-        if currentoffset + Bootloader.HEADER_SIZE < MAX_READ:
-            # read SE offset / length from header
-            image.seek(currentoffset, 0)
-            selength = Bootloader(image.read(Bootloader.HEADER_SIZE)).length
-
-            # read SE into object
-            image.seek(currentoffset, 0)
-            sedata = image.read(selength)
-            se = CE(sedata)
-
-            # Validate SE
-            print('=== ' + str(hex(currentoffset)) + ' ===\n' + str(se))
-            
-            currentoffset += se.length
-
-##        # 6BL
-##        # This will not exist in shadowboot files, just testing algorithm
-##        if currentoffset + Bootloader.HEADER_SIZE < MAX_READ:
-##            image.seek(currentoffset, 0)
-##            headerdata = image.read(Bootloader.HEADER_SIZE)
-##            sf = Bootloader(headerdata)
-##
-##            # Validate SF
-##            ##print(sf)
-##            print('=== ' + str(hex(currentoffset)) + ' ===\n' + str(sf))
-##            
-##            currentoffset += sf.length
-
-    random = bytes('\0' * 16, 'ascii')
-
-    # Decrypt and export encrypted SB
-    with open('output/SB_' + str(sb.build) + '_enc.bin', 'wb') as sbout:
-        sbout.write(sb.block_encrypted)
-
-    # Decrypt and export decrypted SB
-    with open('output/SB_' + str(sb.build) + '_dec.bin', 'wb') as sbout:
-        sbout.write(sb.decrypt_CB())
-
-    sb.updateKey(random)
-
-    # Decrypt and export decrypted SD
-    with open('output/SD_' + str(sd.build) + '_enc.bin', 'wb') as sdout:
-        sdout.write(sd.block_encrypted)
-
-    # Decrypt and export decrypted SD
-    with open('output/SD_' + str(sd.build) + '_dec.bin', 'wb') as sdout:
-        sdout.write(sd.decrypt_CD(sb))
-
-    sd.updateKey(sb, random)
-
-    # Decrypt and export decrypted SE
-    with open('output/SE_' + str(se.build) + '_enc.bin', 'wb') as seout:
-        seout.write(se.block_encrypted)
-
-    # Decrypt and export decrypted SE
-    with open('output/SE_' + str(se.build) + '_dec.bin', 'wb') as seout:
-        seout.write(se.decrypt_CE(sd))
-
-    exit(0)
-
-    ## Deprecated
-
-##    SB_OFFSET = 0x8000 # From shadowboot file
-##    CB_OFFSET = 0x8400 # From XDK NAND dump
-##
-##
-##    MAX_READ = os.path.getsize(target) - HEADER_SIZE # Cannot read past the size of the file
-##    count = 0
-##
-##    bootloaders = []
-##
-##    with open(target, 'rb') as shadowboot:
-##
-##        current_offset = SB_OFFSET
-##        
-##        while MAX_READ > current_offset and count < 4:
-##            #ipdb.set_trace()
-##
-##            shadowboot.seek(current_offset, 0) # Seek to bootloader
-##            header = shadowboot.read(HEADER_SIZE)
-##
-##            bootloader = Bootloader(header)
-##            bootloaders.append(bootloader)
-##            current_offset += bootloader.length
-##            count += 1
-##
-##    for bootloader in bootloaders:
-##        print(str(bootloader))
-##        print(bootloader.pack())
+    nand.printMetadata()
 
 if __name__ == '__main__':
     main(sys.argv)
