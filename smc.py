@@ -3,32 +3,35 @@
 class SMC():
 
     SMC_KEY = [0x42, 0x75, 0x4e, 0x79]
-    
+
     def __init__(self, data, currentlocation):
-        self.block_encrypted = data
-        self.data = None
-        
+        self.data_encrypted = data
+        self.data_plaintext = self.decrypt_SMC()
+
         self.offset = currentlocation
 
+    """
+    Modify data_plaintext inline to store decrypted data
+    """
     def decrypt_SMC(self):
         res = ""
-        for i in range(len(self.data)):
-            j = ord(self.data[i])
+        for i in range(len(self.data_plaintext)):
+            j = ord(self.data_plaintext[i])
             mod = j * 0xFB
             res += chr(j ^ (SMC.SMC_KEY[i&3] & 0xFF))
             SMC.SMC_KEY[(i+1)&3] += mod
             SMC.SMC_KEY[(i+2)&3] += mod >> 8
-        self.data = res
-        return res
-    
+        self.data_plaintext = res
+
+    """
+    Modify data_encrypted inline to store decrypted data
+    """
     def encrypt_SMC(self):
         res = ""
-        for i in range(len(self.data)):
-            j = ord(self.data[i]) ^ (SMC.SMC_KEY[i&3] & 0xFF)
+        for i in range(len(self.data_plaintext)):
+            j = ord(self.data_plaintext[i]) ^ (SMC.SMC_KEY[i&3] & 0xFF)
             mod = j * 0xFB
             res += chr(j)
             SMC.SMC_KEY[(i+1)&3] += mod
             SMC.SMC_KEY[(i+2)&3] += mod >> 8
-        self.data = res
-        return res
-
+        self.data_encrypted = res
