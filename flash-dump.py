@@ -87,20 +87,20 @@ def main(argv):
         """
         nandsections = []
 
-#        # Check for SMC
-#        if not nandheader.smcoffset == 0:
-#            image.seek(nandheader.smcoffset,0)
-#            smcdata = image.read(nandheader.smclength)
-#            # Make sure SMC is not null
-#            if not all(b == 0 for b in smcdata):
-#                smc = SMC(smcdata, nandheader.smcoffset)
-## TODO Unifying interface for nandsections
-##                nandsections.append(smc)
-#                print('Found valid SMC at ' + str(hex(smc.offset)))
-#            else:
-#                print('SMC is null, skipping SMC')
-#        else:
-#            print('SMC offset is null, skipping SMC')
+        # Check for SMC
+        if not nandheader.smcoffset == 0:
+            image.seek(nandheader.smcoffset,0)
+            smcdata = image.read(nandheader.smclength)
+            # Make sure SMC is not null
+            if not all(b == 0 for b in smcdata):
+                smc = SMC(smcdata, nandheader.smcoffset)
+# TODO Unifying interface for nandsections
+#                nandsections.append(smc)
+                print('Found valid SMC at ' + str(hex(smc.offset)))
+            else:
+                print('SMC is null, skipping SMC')
+        else:
+            print('SMC offset is null, skipping SMC')
 
 # TODO
 #        # Check for Keyvault
@@ -281,6 +281,9 @@ def main(argv):
         for section in nandsections:
             print(str(section))
             print('')
+
+        with open('Output/SMC_dec.bin', 'wb+') as smcout:
+            smcout.write(smc.data_plaintext)
 
 if __name__ == '__main__':
     main(sys.argv)

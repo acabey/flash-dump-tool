@@ -8,7 +8,7 @@ class SMC():
         self.name = 'SMC'
         self.data_encrypted = data
         self.data_plaintext = data
-        self.decrypt_SMC()
+        self.decrypt()
 
         self.offset = currentlocation
 
@@ -25,25 +25,48 @@ class SMC():
     """
     Modify data_plaintext inline to store decrypted data
     """
-    def decrypt_SMC(self):
-        res = ""
-        for i in range(len(self.data_plaintext)):
-            j = ord(self.data_plaintext[i])
-            mod = j * 0xFB
-            res += bytes(j ^ (SMC.SMC_KEY[i&3] & 0xFF))
-            SMC.SMC_KEY[(i+1)&3] += mod
-            SMC.SMC_KEY[(i+2)&3] += mod >> 8
-        self.data_plaintext = res
+    def decrypt(self):
+
+        key = SMC.SMC_KEY
+
+        i = 0
+        length = len(self.data_plaintext)
+        index = 0;
+
+        self.data_plaintext = bytearray(self.data_plaintext)
+
+        while length > 0:
+            length -= 1
+            mod = self.data_plaintext[index] * 0xFB
+            self.data_plaintext[index] ^= key[i] & 0xFF
+            index += 1
+            i += 1
+            i &= 3
+            key[i] += mod
+            key[(i + 1) & 3] += mod >> 8
+
+        self.data_plaintext = bytes(self.data_plaintext)
 
     """
     Modify data_encrypted inline to store decrypted data
     """
-    def encrypt_SMC(self):
+    # TODO Encryption and CRC calculations
+    def encrypt(self):
+
+        key = SMC.SMC_KEY
+
+        i = 0
+        length = len(self.data_plaintext)
+        index = 0;
+
+        self.data_plaintext = bytearray(self.data_plaintext)
+
         res = ""
+        key = SMC.SMC_KEY
         for i in range(len(self.data_plaintext)):
-            j = ord(self.data_plaintext[i]) ^ (SMC.SMC_KEY[i&3] & 0xFF)
+            j = ord(self.data_plaintext[i]) ^ (key[i&3] & 0xFF)
             mod = j * 0xFB
             res += chr(j)
-            SMC.SMC_KEY[(i+1)&3] += mod
-            SMC.SMC_KEY[(i+2)&3] += mod >> 8
+            key[(i+1)&3] += mod
+            key[(i+2)&3] += mod >> 8
         self.data_encrypted = res
