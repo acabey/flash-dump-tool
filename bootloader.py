@@ -139,7 +139,7 @@ class Bootloader():
     Decrypt the encrypted data
     """
     def decrypt(self):
-        self.data_plaintext = self.header.pack() + RC4.new(self.key).decrypt(self.data_encrypted[0x20:])
+        self.data_plaintext = bytes(self.header.pack() + RC4.new(self.key).decrypt(self.data_encrypted[0x20:]))
 
 class BL2(Bootloader):
 

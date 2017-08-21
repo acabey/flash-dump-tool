@@ -87,19 +87,20 @@ def main(argv):
         """
         nandsections = []
 
-        # Check for SMC
-        if not nandheader.smcoffset == 0:
-            image.seek(nandheader.smcoffset,0)
-            smcdata = image.read(nandheader.smclength)
-            # Make sure SMC is not null
-            if not all(b == 0 for b in smcdata):
-                smc = SMC(smcdata, nandheader.smcoffset)
-                nandsections.append(smc)
-                print('Found valid SMC at ' + str(hex(smc.offset)))
-            else:
-                print('SMC is null, skipping SMC')
-        else:
-            print('SMC offset is null, skipping SMC')
+#        # Check for SMC
+#        if not nandheader.smcoffset == 0:
+#            image.seek(nandheader.smcoffset,0)
+#            smcdata = image.read(nandheader.smclength)
+#            # Make sure SMC is not null
+#            if not all(b == 0 for b in smcdata):
+#                smc = SMC(smcdata, nandheader.smcoffset)
+## TODO Unifying interface for nandsections
+##                nandsections.append(smc)
+#                print('Found valid SMC at ' + str(hex(smc.offset)))
+#            else:
+#                print('SMC is null, skipping SMC')
+#        else:
+#            print('SMC offset is null, skipping SMC')
 
 # TODO
 #        # Check for Keyvault
@@ -172,7 +173,9 @@ def main(argv):
                     nandsections.append(bl3)
                     print('Found valid BL3: ' + bl3.header.name + ' at ' + str(hex(bl3.header.offset)))
                     if bl2:
-                        bl3.updateKey(bl2.key)
+                        #bl3.updateKey(bl2.key)
+                        # I am not sure why this works, but it decrypts properly
+                        bl3.updateKey(bytes('\x00'*0x10, 'ASCII'))
                         bl3.decrypt()
                         print('Decrypted BL3')
                     else:
