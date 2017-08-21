@@ -1,3 +1,8 @@
 Flash dump analyzer
 
-Based off of Stoker25 and Tydye81's RGBuild
+Requirements:
+    - libssl
+    - pycrypto
+    - hashlib
+
+Usage: flash-dump-tool path/to/image.bin

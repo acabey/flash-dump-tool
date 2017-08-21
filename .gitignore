@@ -1,0 +1,15 @@
+# Ignore compiled python
+__pycache__/
+*.pyc
+*.pyo
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Output
+output/
+
+# Binaries...
+build/
+dist/
