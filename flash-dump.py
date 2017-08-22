@@ -282,8 +282,5 @@ def main(argv):
             print(str(section))
             print('')
 
-        with open('Output/SMC_dec.bin', 'wb+') as smcout:
-            smcout.write(smc.data_plaintext)
-
 if __name__ == '__main__':
     main(sys.argv)
