@@ -5,7 +5,68 @@ Load and dump information from flash dumps and shadowboot ROMs
 
 Should be able to detect type of file as well as partial files
 
-Usage: python3 flash-dump.py image.bin [cpukey]
+Usage: python3 flash-dump.py image.bin -c cpukey -x section
+
+-c  CPU key
+    Required to decrypt bootloaders CD and onward on retails with CB >= 1920
+    Required to decrypt keyvault
+    Required to replace encrypted sections
+
+    ex. python3 flash-dump.py image.bin -c 48a3e35253c20bcc796d6ec1d5d3d811
+
+-x  Extract section
+    
+    Valid sections are:
+        keyvault, smc, smcconfig, sb, cb, sc, sd, cd, se, ce, cf, cg, cf1, cg1, kernel, hv
+
+    Use 'all' to extract all sections
+
+    ex. python3 flash-dump.py image.bin -x sb
+    ex. python3 flash-dump.py image.bin -x sb -x sd -x smc
+    ex. python3 flash-dump.py image.bin -x all
+
+-r  Replace section
+    Provided replacement must be decrypted (plaintext) as well as decompressed in the case of kernel and hv
+    
+    Valid sections are as above
+
+    ex. python3 flash-dump.py image.bin -r se se_patched_plain.bin
+    ex. python3 flash-dump.py image.bin -r kernel xboxkrnl_patched_plain_dec.bin
+
+-i  Insert section
+    Provided section must be decrypted (plaintext) as well as decompressed in the case of kernel and hv
+
+    Fails if the section already exists in the image
+
+    This should only be used in rare situations as it is difficult to use properly
+
+    Valid sections are as above
+
+    ex. python3 flash-dump.py image.bin -i se se_patched_plain.bin
+    ex. python3 flash-dump.py image.bin -i kernel xboxkrnl_patched_plain_dec.bin
+
+-ir Insert / Replace section
+    Provided section must be decrypted (plaintext) as well as decompressed in the case of kernel and hv
+
+    Same as -i, but will replace instead of failing if the section already exists
+
+    Valid sections are as above
+
+    ex. python3 flash-dump.py image.bin -ir se se_patched_plain.bin
+    ex. python3 flash-dump.py image.bin -ir kernel xboxkrnl_patched_plain_dec.bin
+
+-bs Build shadowboot image from sections
+    Provided sections must be decrypted (plaintext)
+
+    Required sections are smc, sb/cb, sc, sd/cd, se
+
+    Will fail if missing required section
+
+    Will warn if mismatch in development (SX) and retail (CX) bootloaders
+
+    Will warn if expected patch slots mismatches from provided
+
+    ex. python3 flash-dump.py image.bin -bs smc_plain.bin sb_plain.bin sc_plain.bin sd_plain.bin se_plain.bin
 
 """
 
