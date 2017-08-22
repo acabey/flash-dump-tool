@@ -2,7 +2,7 @@
 
 # Apply KXAM patches to a target
 
-import sys
+import sys, struct
 
 def main(argv):
     target = argv[1] if len(argv) >  0 else None
@@ -17,7 +17,7 @@ def main(argv):
     # 4 byte * count patch payload
 
     with open(patch, 'rb') as patchfile:
-        with open(target, 'wb+') as targetfile:
+        with open(target, 'r+b') as targetfile:
             patchcountbytes = None
 
 #            while(True)
@@ -25,19 +25,29 @@ def main(argv):
 #                patchoffsetbytes = patchfile.read(4)
 #                if patchoffsetbytes == b'\xFF\xFF\xFF\xFF':
 #                    break
-            while ((patchoffsetbytes = patchfile.read(4)) != b'\xFF\xFF\xFF\xFF'):
+
+            while(patchfile.readable()):
+
+                patchoffsetbytes = patchfile.read(4)
+                if patchoffsetbytes == b'\xFF\xFF\xFF\xFF':
+                    break
 
                 patchoffset = struct.unpack('>I', patchoffsetbytes)[0]
+                print('patchoffset: ' + str(hex(patchoffset)))
 
                 patchcountbytes = patchfile.read(4)
                 patchcount = struct.unpack('>I', patchcountbytes)[0]
+                print('patchcount: ' + str(hex(patchcount)))
+                print('expected payload size: ' + str(hex(patchcount*4)))
 
                 patchpayloadbytes = patchfile.read(4*patchcount)
+                print('payload length: ' + str(hex(len(patchpayloadbytes))))
+                print('payload: ' + str(patchpayloadbytes))
 
                 print('Writing patch of length ' + str(hex(patchcount)) + ' to offset ' + str(hex(patchoffset)))
 
                 targetfile.seek(patchoffset,0)
-                #targetfile.write(patchpayloadbytes)
+                targetfile.write(patchpayloadbytes)
 
     print('Successfully wrote patches')
 
