@@ -160,6 +160,20 @@ class BL2(Bootloader):
         else:
             print('Error: Cannot zeropair encrypted bootloader ' + self.header.name)
 
+class CE(Bootloader):
+
+    def __init__(self, data_encrypted, header):
+        Bootloader.__init__(self, data_encrypted, header)
+
+    def patch(self):
+        pass
+
+    def compress(self):
+        pass
+
+    def decompress(self):
+        pass
+
 class CF(Bootloader):
 
     def __init__(self, data_encrypted, header):

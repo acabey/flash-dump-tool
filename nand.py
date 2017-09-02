@@ -96,4 +96,13 @@ class ImageType(Enum):
     Shadowboot = 3
 
 class Constants():
-    SHADOWBOOT_SIZE = 851968 # Bytes
+    SHADOWBOOT_SIZE = 851968 # Seems to be the max size (bytes) for a shadowboot ROM based on official samples. Don't where limit is imposed
+
+"""
+A unifying interface for all NAND sections to generalize and simplify extraction and output
+"""
+class NANDSection():
+    pass
+
+def makeSection(section):
+    pass

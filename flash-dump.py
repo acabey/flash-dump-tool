@@ -15,7 +15,7 @@ Usage: python3 flash-dump.py image.bin -c cpukey -x section
     ex. python3 flash-dump.py image.bin -c 48a3e35253c20bcc796d6ec1d5d3d811
 
 -x  Extract section
-    
+
     Valid sections are:
         keyvault, smc, smcconfig, sb, cb, sc, sd, cd, se, ce, cf, cg, cf1, cg1, kernel, hv
 
@@ -27,7 +27,7 @@ Usage: python3 flash-dump.py image.bin -c cpukey -x section
 
 -r  Replace section
     Provided replacement must be decrypted (plaintext) as well as decompressed in the case of kernel and hv
-    
+
     Valid sections are as above
 
     ex. python3 flash-dump.py image.bin -r se se_patched_plain.bin
@@ -68,9 +68,22 @@ Usage: python3 flash-dump.py image.bin -c cpukey -x section
 
     ex. python3 flash-dump.py image.bin -bs smc_plain.bin sb_plain.bin sc_plain.bin sd_plain.bin se_plain.bin
 
+-k  Key file path
+
+    By default the programs looks for a plaintext file called "keys" in the local directory
+
+    Provided file must follow the format where line 1 is the 1BL key and line 2 the PIRS key
+
+    ex. python3 flash-dump.py image.bin -x kernel -k /path/to/keys.txt
+
+-d  Verbose output for debugging
+
+-v  Version
+
 """
 
-import os, sys
+import os, sys, argeparse
+from common import *
 from nand import NANDHeader, ImageType, Constants
 from smc import SMC
 from bootloader import BootloaderHeader, CFHeader, Bootloader, BL2, CF
@@ -93,14 +106,20 @@ def main(argv):
         print("Usage: flash-dump.py path/to/image.bin")
         sys.exit(1)
 
+    """
+    ============================================================================
+    Input metadata
+    ============================================================================
+    """
+
+
     # Parse file header
     with open(target, 'rb') as image:
         nandheader = NANDHeader(image.read(NANDHeader.HEADER_SIZE), 0)
-        # TODO: Allow override for magic check
         if not nandheader.validateMagic():
-            print('** Failure: magic bytes check: invalid image')
+            failprint('magic bytes check: invalid image')
         if not nandheader.validateCopyright():
-            print('** Warning: failed copyright notice check invalid or custom image')
+            warnprint('failed copyright notice check invalid or custom image')
 
         # Detect image type
         """
@@ -126,6 +145,12 @@ def main(argv):
 
         # Newline
         print('')
+
+        """
+        ========================================================================
+        Load NAND/shadowboot structures
+        ========================================================================
+        """
 
 
         # Load structure accordingly
@@ -164,28 +189,28 @@ def main(argv):
             print('SMC offset is null, skipping SMC')
 
 # TODO
-#        # Check for Keyvault
-#        # Because the keyvault's length is stored in its header, we first create the header object
-#        if not nandheader.kvoffset == 0:
-#            image.seek(nandheader.kvoffset,0)
-#            keyvaultheaderdata = image.read(KeyvaultHeader.HEADER_SIZE)
-#            # Make sure KV header is not null
-#            if not all(b == 0 for b in keyvaultheaderdata):
-#                keyvaultheader = KeyvaultHeader(keyvaultheaderdata, nandheader.keyvaultoffset)
-#
-#                image.seek(nandheader.kvoffset,0)
-#                keyvaultdata = image.read(keyvaultheader.length)
-#                # Make sure KV is not null
-#                if not all(b == 0 for b in keyvaultdata):
-#                    keyvault = Keyvault(keyvaultheader, keyvaultdata)
-#                    nandsections.append(keyvault)
-#                    print('Found valid keyvault at ' + str(hex(keyvault.offset)))
-#                else:
-#                    print('Keyvault data is null, skipping keyvault')
-#            else:
-#                print('Keyvault header is null, skipping keyvault')
-#        else:
-#            print('Keyvault offset is null, skipping keyvault')
+        # Check for Keyvault
+        # Because the keyvault's length is stored in its header, we first create the header object
+        if not nandheader.kvoffset == 0:
+            image.seek(nandheader.kvoffset,0)
+            keyvaultheaderdata = image.read(KeyvaultHeader.HEADER_SIZE)
+            # Make sure KV header is not null
+            if not all(b == 0 for b in keyvaultheaderdata):
+                keyvaultheader = KeyvaultHeader(keyvaultheaderdata, nandheader.kvoffset)
+
+                image.seek(nandheader.kvoffset,0)
+                keyvaultdata = image.read(keyvaultheader.length)
+                # Make sure KV is not null
+                if not all(b == 0 for b in keyvaultdata):
+                    keyvault = Keyvault(keyvaultheader, keyvaultdata)
+                    nandsections.append(keyvault)
+                    print('Found valid keyvault at ' + str(hex(keyvault.offset)))
+                else:
+                    print('Keyvault data is null, skipping keyvault')
+            else:
+                print('Keyvault header is null, skipping keyvault')
+        else:
+            print('Keyvault offset is null, skipping keyvault')
 
         # Check for 2BL (CB/SB)
         # Because the bootloader's length is stored in its header, we first create the header object
@@ -278,6 +303,12 @@ def main(argv):
         else:
             print('BL3 (header) missing, skipping BL4')
 
+        """
+        ============================================================================
+        NAND Extras
+        ============================================================================
+        """
+
         # Check for 5BL (CF/SE)
         # Retails will have 5BL (CF) and 6BL (CG)
         if imagetype == ImageType.Retail:
@@ -339,9 +370,15 @@ def main(argv):
         # Newline
         print('')
 
+        """
+        ============================================================================
+        Output
+        ============================================================================
+        """
         for section in nandsections:
             print(str(section))
             print('')
 
 if __name__ == '__main__':
+    debug = False
     main(sys.argv)
