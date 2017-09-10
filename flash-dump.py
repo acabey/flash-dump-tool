@@ -33,48 +33,55 @@ Usage: python3 flash-dump.py image.bin -c cpukey -x section
     ex. python3 flash-dump.py image.bin -r se se_patched_plain.bin
     ex. python3 flash-dump.py image.bin -r kernel xboxkrnl_patched_plain_dec.bin
 
--i  Insert section
-    Provided section must be decrypted (plaintext) as well as decompressed in the case of kernel and hv
+#-i  Insert section
+#    Provided section must be decrypted (plaintext) as well as decompressed in the case of kernel and hv
+#
+#    Fails if the section already exists in the image
+#
+#    This should only be used in rare situations as it is difficult to use properly
+#
+#    Valid sections are as above
+#
+#    ex. python3 flash-dump.py image.bin -i se se_patched_plain.bin
+#    ex. python3 flash-dump.py image.bin -i kernel xboxkrnl_patched_plain_dec.bin
 
-    Fails if the section already exists in the image
+#-ir Insert / Replace section
+#    Provided section must be decrypted (plaintext) as well as decompressed in the case of kernel and hv
+#
+#    Same as -i, but will replace instead of failing if the section already exists
+#
+#    Valid sections are as above
+#
+#    ex. python3 flash-dump.py image.bin -ir se se_patched_plain.bin
+#    ex. python3 flash-dump.py image.bin -ir kernel xboxkrnl_patched_plain_dec.bin
 
-    This should only be used in rare situations as it is difficult to use properly
-
-    Valid sections are as above
-
-    ex. python3 flash-dump.py image.bin -i se se_patched_plain.bin
-    ex. python3 flash-dump.py image.bin -i kernel xboxkrnl_patched_plain_dec.bin
-
--ir Insert / Replace section
-    Provided section must be decrypted (plaintext) as well as decompressed in the case of kernel and hv
-
-    Same as -i, but will replace instead of failing if the section already exists
-
-    Valid sections are as above
-
-    ex. python3 flash-dump.py image.bin -ir se se_patched_plain.bin
-    ex. python3 flash-dump.py image.bin -ir kernel xboxkrnl_patched_plain_dec.bin
-
--bs Build shadowboot image from sections
-    Provided sections must be decrypted (plaintext)
-
-    Required sections are smc, sb/cb, sc, sd/cd, se
-
-    Will fail if missing required section
-
-    Will warn if mismatch in development (SX) and retail (CX) bootloaders
-
-    Will warn if expected patch slots mismatches from provided
-
-    ex. python3 flash-dump.py image.bin -bs smc_plain.bin sb_plain.bin sc_plain.bin sd_plain.bin se_plain.bin
+#-bs Build shadowboot image from sections
+#    Provided sections must be decrypted (plaintext)
+#
+#    Required sections are smc, sb/cb, sc, sd/cd, se
+#
+#    Will fail if missing required section
+#
+#    Will warn if mismatch in development (SX) and retail (CX) bootloaders
+#
+#    Will warn if expected patch slots mismatches from provided
+#
+#    ex. python3 flash-dump.py image.bin -bs smc_plain.bin sb_plain.bin sc_plain.bin sd_plain.bin se_plain.bin
 
 -k  Key file path
 
     By default the programs looks for a plaintext file called "keys" in the local directory
 
-    Provided file must follow the format where line 1 is the 1BL key and line 2 the PIRS key
+    Provided file must follow the format where line 1 is the 1BL RC4 key and line 2 the 4BL private key
 
     ex. python3 flash-dump.py image.bin -x kernel -k /path/to/keys.txt
+
+-s  Sign
+    Provided file must be decrypted (plaintext) SD
+
+    Signs the given 4BL with the 4BL private key
+
+    ex. python3 flash-dump.py -s SD_dec.bin
 
 -d  Verbose output for debugging
 
@@ -82,11 +89,12 @@ Usage: python3 flash-dump.py image.bin -c cpukey -x section
 
 """
 
-import os, sys, argeparse
+import os, sys, argparse, textwrap
 from common import *
-from nand import NANDHeader, ImageType, Constants
+from nand import NANDHeader, ImageType
+from bootloader import *
 from smc import SMC
-from bootloader import BootloaderHeader, CFHeader, Bootloader, BL2, CF
+from image import Image
 
 # Load image
 """
@@ -100,77 +108,103 @@ Read from the provided image file
 
 def main(argv):
 
-    target = argv[1] if len(argv) > 1 else None
+    parser = argparse.ArgumentParser(prog='flash-dump',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description=textwrap.dedent('''\
+        360 Flash Tool - acabey
+        --------------------------------
+            Load and dump information from flash dumps and shadowboot ROMs
+            Should be able to detect type of file as well as partial files
+        '''),
+        epilog=textwrap.dedent('''\
+        Valid sections are:
+            keyvault, smc, smcconfig, sb, cb, sc, sd, cd, se, ce, cf, cg, cf1, cg1, kernel, hv
+        ''')
+    )
 
-    if not target:
-        print("Usage: flash-dump.py path/to/image.bin")
-        sys.exit(1)
+    parser.add_argument('target', type=str, metavar='/path/to/working/file', help='Working file - NAND/Shadowboot/NAND section or output file name')
+    parser.add_argument('-e', '--enumerate', nargs='+', metavar='section', type=str, help='Enumerate section(s)')
+    parser.add_argument('-d', '--decrypt', nargs='+', metavar='section', type=str, help='Decrypt section(s)')
+    parser.add_argument('-x', '--extract', nargs='+', metavar='section', type=str, help='Extract section(s)')
+    parser.add_argument('-r', '--replace', nargs=2, type=str, metavar=('section', '/path/to/replacement'), help='Replace decrypted section')
+#    parser.add_argument('--re', nargs=2, type=str, metavar=('section', 'replacement path'), help='Replace encrypted section')
+    parser.add_argument('-k', '--keyfile', nargs=1, type=str, metavar='/path/to/keyfile', help='Key file')
+    parser.add_argument('-c', '--cpukey', nargs=1, type=str, metavar='cpukey', help='CPU key')
+    parser.add_argument('--debug', action='store_true', help='Verbose debug output')
+    parser.add_argument('-v', '--verbose', action='store_true', help='Version')
+    args = parser.parse_args()
 
+    # Load input metadata and populate available sections
     """
     ============================================================================
     Input metadata
+        Load NAND/shadowboot structures
     ============================================================================
     """
+    Image.identifyAvailableStructures(args.target)
+    availablesections = Image.getAvailableStructures()
 
 
-    # Parse file header
-    with open(target, 'rb') as image:
-        nandheader = NANDHeader(image.read(NANDHeader.HEADER_SIZE), 0)
-        if not nandheader.validateMagic():
-            failprint('magic bytes check: invalid image')
-        if not nandheader.validateCopyright():
-            warnprint('failed copyright notice check invalid or custom image')
+    """
+    ============================================================================
+    Manipulate input
+    ============================================================================
+    """
+    dbgprint('args: ' + str(args))
 
-        # Detect image type
-        """
-        Determine dump format (size), retail/XDK/shadowboot
+    # Enumerate if available
+    if not args.enumerate == None:
+        for section in args.enumerate:
+            if section == 'all':
+                for availablesection in availablesections:
+                    print('==== ' + availablesection + ' ====')
+                    print(availablesections[availablesection].enumerate())
+                    print('')
+                break
 
-        Differentiates between XDK and retail by bootloader name
-        """
-        # Check file size
-        filesize = os.path.getsize(target)
-        if filesize <= Constants.SHADOWBOOT_SIZE:
-            imagetype = ImageType.Shadowboot
-            print('Detected image by file size as shadowboot')
+            if section in availablesections.keys():
+                print('==== ' + section + ' ====')
+                print(availablesections[section].enumerate())
+            else:
+                warnprint('Section: ' + section + ' is not available in input file')
+
+    # Extract if available
+    if not args.extract == None:
+        for section in args.extract:
+            if section == 'all':
+                for availablesection in availablesections:
+                    availablesections[availablesection].extract()
+                break
+
+            if section in availablesections.keys():
+                availablesections[section].extract()
+            else:
+                warnprint('Section: ' + section + ' is not available in input file')
+
+    # Replace if available
+    if not args.replace == None:
+        section = args.replace[0]
+        replacementpath = args.replace[1]
+        dbgprint(availablesections.keys())
+        if section in availablesections.keys():
+            try:
+                availablesections[section].replace(replacementpath)
+                availablesections[section].write(Image.outputpath.path)
+            except Exception as e:
+                failprint('Failed to replace ' + section + ': ' + str(e))
         else:
-            # Check if BL2 is SB or CB
-            image.seek(nandheader.bl2offset,0)
-            bl2name = image.read(2)
-            if bl2name == b'CB':
-                imagetype = ImageType.Retail
-                print('Detected image by bootloader name as retail')
-            elif bl2name == b'SB':
-                imagetype = ImageType.Devkit
-                print('Detected image by bootloader name as devkit')
+            warnprint('Section: ' + section + ' is not available in input file')
 
-        # Newline
-        print('')
+    """
+    ============================================================================
+    DEPRECATED
 
-        """
-        ========================================================================
-        Load NAND/shadowboot structures
-        ========================================================================
-        """
+    This is code from prior revisions that I have not refactored.
+    It will be kept (inaccesible) as a reference until implemented in new structure
 
-
-        # Load structure accordingly
-        """
-        Identify present structures
-
-        Retail:
-        - CB[_A, _B], CD, CE, [CF, CG]
-        - Keyvault
-        - SMC / SMC config
-
-        XDK
-        - SB, SC, SD, SE
-        - Keyvault
-        - SMC / SMC config
-
-        Shadowboot:
-        - SB, SC, SD, SE
-        - SMC / SMC config ?
-        """
+    ============================================================================
+    """
+    if False:
         nandsections = []
 
         # Check for SMC
@@ -211,97 +245,6 @@ def main(argv):
                 print('Keyvault header is null, skipping keyvault')
         else:
             print('Keyvault offset is null, skipping keyvault')
-
-        # Check for 2BL (CB/SB)
-        # Because the bootloader's length is stored in its header, we first create the header object
-        if not nandheader.bl2offset == 0:
-            bl2offset = nandheader.bl2offset
-            image.seek(bl2offset,0)
-            bl2headerdata = image.read(BootloaderHeader.HEADER_SIZE)
-            # Make sure BL2 header is not null
-            if not all(b == 0 for b in bl2headerdata):
-                bl2header = BootloaderHeader(bl2headerdata, bl2offset)
-
-                image.seek(bl2offset,0)
-                bl2data = image.read(bl2header.length)
-                # Make sure BL2 is not null
-                if not all(b == 0 for b in bl2data):
-                    # Make proper bootloader object
-                    bl2 = BL2(bl2data, bl2header)
-                    nandsections.append(bl2)
-                    print('Found valid BL2: ' + bl2.header.name + ' at ' + str(hex(bl2.header.offset)))
-                    bl2.updateKey()
-                    bl2.decrypt()
-                    print('Decrypted BL2')
-                else:
-                    print('BL2 data is null, skipping BL2')
-            else:
-                print('BL2 header is null, skipping BL2')
-        else:
-            print('BL2 offset is null, skipping BL2')
-
-        # Check for 3BL (CD/SC)
-        # Because the bootloader's length is stored in its header, we first create the header object
-        if bl2header:
-            bl3offset = bl2header.offset + bl2header.length
-            image.seek(bl3offset, 0)
-            bl3headerdata = image.read(BootloaderHeader.HEADER_SIZE)
-            # Make sure BL3 header is not null
-            if not all(b == 0 for b in bl3headerdata):
-                bl3header = BootloaderHeader(bl3headerdata, bl3offset)
-
-                image.seek(bl3offset, 0)
-                bl3data = image.read(bl3header.length)
-                # Make sure BL2 is not null
-                if not all(b == 0 for b in bl3data):
-                    # Make proper bootloader object
-                    bl3 = Bootloader(bl3data, bl3header)
-                    nandsections.append(bl3)
-                    print('Found valid BL3: ' + bl3.header.name + ' at ' + str(hex(bl3.header.offset)))
-                    if bl2:
-                        #bl3.updateKey(bl2.key)
-                        # I am not sure why this works, but it decrypts properly
-                        bl3.updateKey(bytes('\x00'*0x10, 'ASCII'))
-                        bl3.decrypt()
-                        print('Decrypted BL3')
-                    else:
-                        print('BL2 is null, cannot decrypt BL3')
-                else:
-                    print('BL2 data is null, skipping BL3')
-            else:
-                print('BL2 header is null, skipping BL3')
-        else:
-            print('BL2 (header) missing, skipping BL3')
-
-        # Check for 4BL (CE/SD)
-        if bl3header:
-            bl4offset = bl3header.offset + bl3header.length
-            image.seek(bl4offset, 0)
-            bl4headerdata = image.read(BootloaderHeader.HEADER_SIZE)
-            # Make sure BL4 header is not null
-            if not all(b == 0 for b in bl4headerdata):
-                bl4header = BootloaderHeader(bl4headerdata, bl4offset)
-
-                image.seek(bl4offset, 0)
-                bl4data = image.read(bl4header.length)
-                # Make sure BL3 is not null
-                if not all(b == 0 for b in bl4data):
-                    # Make proper bootloader object
-                    bl4 = Bootloader(bl4data, bl4header)
-                    nandsections.append(bl4)
-                    print('Found valid BL4: ' + bl4.header.name + ' at ' + str(hex(bl4.header.offset)))
-                    if bl3:
-                        bl4.updateKey(bl3.key)
-                        bl4.decrypt()
-                        print('Decrypted BL4')
-                    else:
-                        print('BL3 is null, cannot decrypt BL4')
-                else:
-                    print('BL3 data is null, skipping BL4')
-            else:
-                print('BL3 header is null, skipping BL4')
-        else:
-            print('BL3 (header) missing, skipping BL4')
 
         """
         ============================================================================
@@ -367,18 +310,7 @@ def main(argv):
         - Not required
         """
 
-        # Newline
-        print('')
-
-        """
-        ============================================================================
-        Output
-        ============================================================================
-        """
-        for section in nandsections:
-            print(str(section))
-            print('')
+    sys.exit(0)
 
 if __name__ == '__main__':
-    debug = False
     main(sys.argv)

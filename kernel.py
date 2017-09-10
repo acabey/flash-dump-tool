@@ -2,8 +2,6 @@
 
 from common import *
 
-HV_SIZE = 0x40000
-
 """
 Build a combined SE/CE bootloader buffer from HV and kernel parts
 
@@ -22,7 +20,7 @@ Parameters are in bytes
 Returns tuple of bytes
 """
 def splitbootloader(bootloader_dec):
-    return tuple(bytes(bootloader_dec[:HV_SIZE]), bytes(bootloader_dec[HV_SIZE:]))
+    return tuple(bytes(bootloader_dec[:Constants.HV_SIZE]), bytes(bootloader_dec[Constants.HV_SIZE:]))
 
 def main(argv):
     parser=argparse.ArgumentParser()

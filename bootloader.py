@@ -4,7 +4,9 @@ import struct, hmac
 import Crypto.Cipher.ARC4 as RC4
 from hashlib import sha1 as sha
 
-class BootloaderHeader():
+from nand import NANDSection
+
+class BootloaderHeader(NANDSection):
 
     HEADER_SIZE = 0x20
 
@@ -22,9 +24,15 @@ class BootloaderHeader():
     }
 
     """
-    def __init__(self, header, currentlocation):
+    def __init__(self, header, currentoffset=0):
+        if len(header) < BootloaderHeader.HEADER_SIZE:
+            raise ValueError('Invalid size for bootloader header')
+
+        if all(b == 0 for b in header):
+            raise ValueError('Null data for bootloader header')
+
         header = struct.unpack('>2s3H2I16s', header)
-        self.name = header[0].decode('ASCII')
+        self.name = header[0]
         self.build = header[1]
         self.pairing = header[2]
         self.flags = header[3]
@@ -32,12 +40,29 @@ class BootloaderHeader():
         self.length = header[5]
         self.salt = header[6]
 
-        self.offset = currentlocation
+        self.offset = currentoffset
 
     def __repr__(self):
         return 'Bootloader({})'.format(self.data)
 
     def __str__(self):
+        ret = ''
+        ret += str(self.name)
+        ret += '\n'
+        ret += str(self.build)
+        ret += '\n'
+        ret += str(hex(self.pairing))
+        ret += '\n'
+        ret += str(hex(self.flags))
+        ret += '\n'
+        ret += str(hex(self.entry))
+        ret += '\n'
+        ret += str(hex(self.length))
+        ret += '\n'
+        ret += str(self.salt)
+        return ret
+
+    def enumerate(self):
         ret = ''
         ret += 'Name:    '
         ret += str(self.name)
@@ -84,7 +109,7 @@ class CFHeader(BootloaderHeader):
     }
 
     """
-    def __init__(self, header, currentlocation):
+    def __init__(self, header, currentoffset=0):
         header = struct.unpack('>4H2I16s16s', header)
         self.name = header[0].decode('ASCII')
         self.build = header[1]
@@ -96,7 +121,7 @@ class CFHeader(BootloaderHeader):
         self.unknown = header[6]
         self.salt = header[7]
 
-        self.offset = currentlocation
+        self.offset = currentoffset
 
 """
 The generic container for bootloaders
@@ -105,16 +130,56 @@ The generic container for bootloaders
 Rather than try to keep track of when data is or is not encrypted, instead I opt to allocate memory for both encrypted and decrypted copies
 While this comes at the expense of greater memory usage, it makes modifying data very easy
 """
-class Bootloader():
+class Bootloader(NANDSection):
 
     def __init__(self, data_encrypted, header):
+        if all(b == 0 for b in data_encrypted):
+            raise ValueError('Null data for bootloader')
+
         self.data_encrypted = data_encrypted
-        self.data_plaintext = self.data_encrypted
+        self.data_plaintext = None
         self.header = header
         self.key = None
 
     def __str__(self):
         return str(self.header)
+
+    def enumerate(self):
+        return self.header.enumerate()
+
+    """
+    Write bootloader contents into <Bootloader Name>.<Build>_dec.bin and <Bootloader Name>.<Build>_dec.bin
+        for plaintext and encrypted data, respectively
+    """
+    def extract(self):
+        if self.data_plaintext:
+            with open('output/' + self.header.name.decode('ASCII') + '.' + str(self.header.build) + '_dec' + '.bin', 'w+b') as plaintextout:
+                plaintextout.write(self.data_plaintext)
+
+        with open('output/' + self.header.name.decode('ASCII') + '.' + str(self.header.build) + '_enc' + '.bin', 'w+b') as encryptedout:
+            encryptedout.write(self.data_encrypted)
+
+    """
+    Replace data with contents of provided file
+
+    Defaults to encrypted data, but named parameter can override
+    """
+    def replace(self, replacement, plaintext=False):
+        if plaintext:
+            raise NotImplementedError('plaintext replacement not implemented')
+
+        with open(replacement, 'rb') as replacementdata:
+            replacementheader = type(self.header)(replacementdata.read(self.header.HEADER_SIZE), self.header.offset)
+            replacementdata.seek(0, 0)
+            self = type(self)(replacementdata.read(replacementheader.length), replacementheader)
+
+    """
+    Write current (encrypted) contents to file
+    """
+    def write(self, output):
+        with open(output, 'r+b') as originaldata:
+            originaldata.seek(self.offset, 0)
+            originaldata.write(self.pack())
 
     """
     Derive the RC4 encryption key from the previous key and the salt stored in the header
@@ -132,7 +197,6 @@ class Bootloader():
     Encrypt the plaintext data
     """
     def encrypt(self):
-
         self.data_encrypted = self.header.pack() + RC4.new(self.key).encrypt(self.data_plaintext[0x20:])
 
     """
@@ -141,12 +205,23 @@ class Bootloader():
     def decrypt(self):
         self.data_plaintext = bytes(self.header.pack() + RC4.new(self.key).decrypt(self.data_encrypted[0x20:]))
 
+    """
+    Pack data into C style struct
+    """
+    def pack(self):
+        return bytes(self.header.pack() + self.data_encrypted)
+
 class BL2(Bootloader):
 
-    SECRET_1BL = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+    # TODO Change to constants for 1BL key
 
     def __init__(self, data_encrypted, header):
-        Bootloader.__init__(self, data_encrypted, header)
+        try:
+            Bootloader.__init__(self, data_encrypted, header)
+        except ValueError as e:
+            raise
+        except Exception as e:
+            raise
 
     def updateKey(self, salt=None):
         if salt:
@@ -155,15 +230,54 @@ class BL2(Bootloader):
 
     def zeropair(self):
         # Can only zeropair once decrypted
-        if self.data_plaintext:
-            self.data_plaintext = self.data_plaintext[0:0x20] + "\0" * 0x20 + self.data_plaintext[0x40:]
-        else:
-            print('Error: Cannot zeropair encrypted bootloader ' + self.header.name)
+        assert self.data_plaintext != None, 'Cannot zeropair encrypted bootloader ' + self.header.name
+        self.data_plaintext = self.data_plaintext[0:0x20] + "\0" * 0x20 + self.data_plaintext[0x40:]
+
+
+class CB(BL2):
+
+    MAGIC_BYTES = b'CB'
+
+    def __init__(self, data_encrypted, header):
+        try:
+            BL2.__init__(self, data_encrypted, header)
+        except ValueError as e:
+            raise
+        except Exception as e:
+            raise
+
+        if self.header.name != CB.MAGIC_BYTES:
+            raise ValueError('Failed CB magic bytes check')
+
+class CD(Bootloader):
+
+    MAGIC_BYTES = b'CD'
+
+    def __init__(self, data_encrypted, header):
+        try:
+            Bootloader.__init__(self, data_encrypted, header)
+        except ValueError as e:
+            raise
+        except Exception as e:
+            raise
+
+        if self.header.name != CD.MAGIC_BYTES:
+            raise ValueError('Failed CD magic bytes check')
 
 class CE(Bootloader):
 
+    MAGIC_BYTES = b'CD'
+
     def __init__(self, data_encrypted, header):
-        Bootloader.__init__(self, data_encrypted, header)
+        try:
+            Bootloader.__init__(self, data_encrypted, header)
+        except ValueError as e:
+            raise
+        except Exception as e:
+            raise
+
+        if self.header.name != CE.MAGIC_BYTES:
+            raise ValueError('Failed CE magic bytes check')
 
     def patch(self):
         pass
@@ -176,8 +290,89 @@ class CE(Bootloader):
 
 class CF(Bootloader):
 
+    MAGIC_BYTES = b'CF'
+
     def __init__(self, data_encrypted, header):
-        Bootloader.__init__(self, data_encrypted, header)
+        try:
+            Bootloader.__init__(self, data_encrypted, header)
+        except ValueError as e:
+            raise
+        except Exception as e:
+            raise
+
+        if self.header.name != CF.MAGIC_BYTES:
+            raise ValueError('Failed CF magic bytes check')
 
     def zeropair(self):
+        # Can only zeropair once decrypted
+        assert self.data_plaintext != None, 'Cannot zeropair encrypted bootloader ' + self.header.name
         self.data = self.data[0:0x21c] + "\0" * 4 + self.data[0x220:]
+
+class SB(BL2):
+
+    MAGIC_BYTES = b'SB'
+
+    def __init__(self, data_encrypted, header):
+        try:
+            BL2.__init__(self, data_encrypted, header)
+        except ValueError as e:
+            raise
+        except Exception as e:
+            raise
+
+        if self.header.name != SB.MAGIC_BYTES:
+            raise ValueError('Failed SB magic bytes check')
+
+class SC(Bootloader):
+
+    MAGIC_BYTES = b'SC'
+
+    def __init__(self, data_encrypted, header):
+        try:
+            Bootloader.__init__(self, data_encrypted, header)
+        except ValueError as e:
+            raise
+        except Exception as e:
+            raise
+
+        if self.header.name != SC.MAGIC_BYTES:
+            raise ValueError('Failed SC magic bytes check')
+
+class SD(Bootloader):
+
+    MAGIC_BYTES = b'SD'
+
+    def __init__(self, data_encrypted, header):
+        try:
+            Bootloader.__init__(self, data_encrypted, header)
+        except ValueError as e:
+            raise
+        except Exception as e:
+            raise
+
+        if self.header.name != SD.MAGIC_BYTES:
+            raise ValueError('Failed SD magic bytes check')
+
+class SE(Bootloader):
+
+    MAGIC_BYTES = b'SE'
+
+    def __init__(self, data_encrypted, header):
+        try:
+            Bootloader.__init__(self, data_encrypted, header)
+        except ValueError as e:
+            raise
+        except Exception as e:
+            raise
+
+        if self.header.name != SE.MAGIC_BYTES:
+            raise ValueError('Failed SE magic bytes check')
+
+    def patch(self):
+        pass
+
+    def compress(self):
+        pass
+
+    def decompress(self):
+        pass

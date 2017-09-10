@@ -10,6 +10,9 @@ pip-delete-this-directory.txt
 # Output
 output/
 
+# Data
+Data/
+
 # Binaries...
 build/
 dist/

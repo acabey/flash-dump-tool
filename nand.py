@@ -4,7 +4,20 @@ from enum import Enum
 
 import struct
 
-class NANDHeader():
+
+"""
+A unifying interface for all NAND sections to generalize and simplify extraction and output
+"""
+class NANDSection():
+    """
+    Returns a formatted, printable string representing the metadata for the section
+
+    Printed out as part of enumeration
+    """
+    def enumerate(self):
+        raise NotImplementedError()
+
+class NANDHeader(NANDSection):
 
     HEADER_SIZE = 0x80
     MAGIC_BYTES = b'\xFF\x4F'
@@ -34,9 +47,15 @@ class NANDHeader():
     }
 
     """
-    def __init__(self, header, currentoffset):
+    def __init__(self, header, currentoffset=0):
+        if len(header) < NANDHeader.HEADER_SIZE:
+            raise ValueError('Invalid size for NAND header')
+
         header = struct.unpack('>2s3H2I64s16s2I2H5I', header)
         self.magic = header[0]            # 2s
+        if self.magic != NANDHeader.MAGIC_BYTES:
+            raise ValueError('Failed NAND header magic bytes check')
+
         self.build = header[1]            # H
         self.qfe = header[2]              # H
         self.flags = header[3]            # H
@@ -63,7 +82,7 @@ class NANDHeader():
         ret += '\n'
         ret += str(self.build)
         ret += '\n'
-        ret += str(hex(self.sboffset))
+        ret += str(hex(self.bl2offset))
         ret += '\n'
         ret += str(hex(self.cf1offset))
         ret += '\n'
@@ -71,12 +90,66 @@ class NANDHeader():
         ret += '\n'
         ret += str(hex(self.kvoffset))
         ret += '\n'
-        ret += str(hex(self.metadatastyle))
+        ret += str(hex(self.patchlength))
         ret += '\n'
         ret += str(hex(self.smclength))
         ret += '\n'
         ret += str(hex(self.smcoffset))
         return ret
+
+    def enumerate(self):
+        ret = 'NANDHeader:'
+        ret += '\n'
+        ret += 'magic:         '
+        ret += str(self.magic)
+        ret += '\n'
+        ret += 'build:         '
+        ret += str(self.build)
+        ret += '\n'
+        ret += 'sb offset:     '
+        ret += str(hex(self.bl2offset))
+        ret += '\n'
+        ret += 'cf1 offset:    '
+        ret += str(hex(self.cf1offset))
+        ret += '\n'
+        ret += 'copyright:     '
+        ret += str(self.copyright)
+        ret += '\n'
+        ret += 'kv offset:     '
+        ret += str(hex(self.kvoffset))
+        ret += '\n'
+        ret += 'metadatastyle: '
+        ret += str(hex(self.patchlength))
+        ret += '\n'
+        ret += 'smc length:    '
+        ret += str(hex(self.smclength))
+        ret += '\n'
+        ret += 'smc offset:    '
+        ret += str(hex(self.smcoffset))
+        return ret
+
+    """
+    Write header contents into Header.<build>.bin
+    """
+    def extract(self):
+        with open('output/' + 'Header' + '.' + str(self.build) + '.bin', 'w+b') as headerout:
+            headerout.write(self.pack())
+
+    """
+    Replace data with contents of replacement file
+    """
+    def replace(self, replacement):
+        with open(replacement, 'rb') as replacementdata:
+            self = type(self)(replacementdata.read(NANDHeader.HEADER_SIZE), self.offset)
+
+    """
+    Write current contents to file
+    """
+    def write(self, output):
+        with open(output, 'r+b') as originaldata:
+            originaldata.seek(self.offset, 0)
+            originaldata.write(self.pack())
+
 
     """
     Check if magic bytes at the beginning of header match known NAND/shadowboot magic
@@ -90,19 +163,39 @@ class NANDHeader():
     def validateCopyright(self):
         return self.copyright[0:1]+self.copyright[11:] != NANDHeader.MS_COPYRIGHT[0:1]+NANDHeader.MS_COPYRIGHT[11:]
 
-class ImageType(Enum):
-    Retail = 1
-    Devkit = 2
-    Shadowboot = 3
+    """
+    Pack back into C style struct
+    """
+    def pack(self):
+        return struct.pack('>2s3H2I64s16s2I2H5I',
+            self.magic,
+            self.build,
+            self.qfe,
+            self.flags,
+            self.bl2offset,
+            self.length,
+            self.copyright,
+            self.reserved,
+            self.kvlength,
+            self.cf1offset,
+            self.patchslots,
+            self.kvversion,
+            self.kvoffset,
+            self.patchlength,
+            self.smcconfigoffset,
+            self.smclength,
+            self.smcoffset
+        )
 
-class Constants():
-    SHADOWBOOT_SIZE = 851968 # Seems to be the max size (bytes) for a shadowboot ROM based on official samples. Don't where limit is imposed
+class OutputPath(NANDSection):
+    def __init__(self, path):
+        self.path = path
 
-"""
-A unifying interface for all NAND sections to generalize and simplify extraction and output
-"""
-class NANDSection():
-    pass
+    def enumerate(self):
+        return 'OutputPath:\n' +  'path: ' + self.path
 
-def makeSection(section):
-    pass
+class ImageType(NANDSection, Enum):
+    Retail, Devkit, Shadowboot = range(3)
+
+    def enumerate(self):
+        return str(self)
