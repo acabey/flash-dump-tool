@@ -11,7 +11,7 @@ pip-delete-this-directory.txt
 output/
 
 # Data
-Data/
+data/
 
 # Binaries...
 build/
