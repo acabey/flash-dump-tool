@@ -3,7 +3,7 @@
 """
 Load and dump information from flash dumps and shadowboot ROMs
 
-Should be able to detect type of file as well as partial files
+Detect type of file as well as partial files (ie. extracted bootloader)
 
 Usage: python3 flash-dump.py image.bin -c cpukey -x section
 
@@ -14,16 +14,28 @@ Usage: python3 flash-dump.py image.bin -c cpukey -x section
 
     ex. python3 flash-dump.py image.bin -c 48a3e35253c20bcc796d6ec1d5d3d811
 
--x  Extract section
+-x  Extract section(s)
 
     Valid sections are:
-        keyvault, smc, smcconfig, sb, cb, sc, sd, cd, se, ce, cf, cg, cf1, cg1, kernel, hv
+        nandheader, keyvault, smc, smcconfig, sb, cb, sc, sd, cd, se, ce, cf, cg, cf1, cg1, kernel, hv
 
     Use 'all' to extract all sections
 
     ex. python3 flash-dump.py image.bin -x sb
-    ex. python3 flash-dump.py image.bin -x sb -x sd -x smc
+    ex. python3 flash-dump.py image.bin -x sb sd smc
     ex. python3 flash-dump.py image.bin -x all
+
+
+-e  Enumerate section(s)
+
+    Enumerate information about the given sections (if available)
+
+    Valid sections are as above
+
+    ex. python3 flash-dump.py image.bin -e se
+    ex. python3 flash-dump.py image.bin -e nandheader sb kv
+    ex. python3 flash-dump.py image.bin -e all
+
 
 -r  Replace section
     Provided replacement must be decrypted (plaintext) as well as decompressed in the case of kernel and hv
@@ -32,6 +44,16 @@ Usage: python3 flash-dump.py image.bin -c cpukey -x section
 
     ex. python3 flash-dump.py image.bin -r se se_patched_plain.bin
     ex. python3 flash-dump.py image.bin -r kernel xboxkrnl_patched_plain_dec.bin
+
+-d  Decrypt section(s)
+
+    Attempts to decrypt the given sections in place or treat input as decrypted
+
+    Valid sections are as above
+
+    Used in combination with extract and replace
+
+    ex. python3 flash-dump.py image.bin -d sb smc -x sb sd smc
 
 #-i  Insert section
 #    Provided section must be decrypted (plaintext) as well as decompressed in the case of kernel and hv
@@ -68,22 +90,22 @@ Usage: python3 flash-dump.py image.bin -c cpukey -x section
 #
 #    ex. python3 flash-dump.py image.bin -bs smc_plain.bin sb_plain.bin sc_plain.bin sd_plain.bin se_plain.bin
 
--k  Key file path
+#-k  Key file path
+#
+#    By default the programs looks for a plaintext file called "keys" in the local directory
+#
+#    Provided file must follow the format where line 1 is the 1BL RC4 key and line 2 the 4BL private key
+#
+#    ex. python3 flash-dump.py image.bin -x kernel -k /path/to/keys.txt
+#
+#-s  Sign
+#    Provided file must be decrypted (plaintext) SD
+#
+#    Signs the given 4BL with the 4BL private key
+#
+#    ex. python3 flash-dump.py -s SD_dec.bin
 
-    By default the programs looks for a plaintext file called "keys" in the local directory
-
-    Provided file must follow the format where line 1 is the 1BL RC4 key and line 2 the 4BL private key
-
-    ex. python3 flash-dump.py image.bin -x kernel -k /path/to/keys.txt
-
--s  Sign
-    Provided file must be decrypted (plaintext) SD
-
-    Signs the given 4BL with the 4BL private key
-
-    ex. python3 flash-dump.py -s SD_dec.bin
-
--d  Verbose output for debugging
+--debug  Verbose output for debugging
 
 -v  Version
 
@@ -127,11 +149,10 @@ def main(argv):
     parser.add_argument('-d', '--decrypt', nargs='+', metavar='section', type=str, help='Decrypt section(s)')
     parser.add_argument('-x', '--extract', nargs='+', metavar='section', type=str, help='Extract section(s)')
     parser.add_argument('-r', '--replace', nargs=2, type=str, metavar=('section', '/path/to/replacement'), help='Replace decrypted section')
-#    parser.add_argument('--re', nargs=2, type=str, metavar=('section', 'replacement path'), help='Replace encrypted section')
     parser.add_argument('-k', '--keyfile', nargs=1, type=str, metavar='/path/to/keyfile', help='Key file')
     parser.add_argument('-c', '--cpukey', nargs=1, type=str, metavar='cpukey', help='CPU key')
     parser.add_argument('--debug', action='store_true', help='Verbose debug output')
-    parser.add_argument('-v', '--verbose', action='store_true', help='Version')
+    parser.add_argument('-v', '--version', action='version', version='%(prog)s 0.5', help='Version')
     args = parser.parse_args()
 
     # Load input metadata and populate available sections
