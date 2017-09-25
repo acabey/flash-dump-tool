@@ -17,6 +17,12 @@ class NANDSection():
     def enumerate(self):
         raise NotImplementedError()
 
+    """
+    Write contents to file in output directory
+    """
+    def extract(self):
+        raise NotImplementedError()
+
 class NANDHeader(NANDSection):
 
     HEADER_SIZE = 0x80
@@ -194,8 +200,14 @@ class OutputPath(NANDSection):
     def enumerate(self):
         return 'OutputPath:\n' +  'path: ' + self.path
 
+    def extract(self):
+        pass
+
 class ImageType(NANDSection, Enum):
     Retail, Devkit, Shadowboot = range(3)
 
     def enumerate(self):
         return str(self)
+
+    def extract(self):
+        pass

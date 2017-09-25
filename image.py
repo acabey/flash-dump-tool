@@ -199,33 +199,58 @@ class Image():
 
                 # Identify retail NAND structures
                 if Image.cb:
+                    Image.cb.updateKey()
+                    Image.cb.decrypt()
+
                     image.seek(Image.cb.header.offset + Image.cb.header.length, 0)
                     Image.identifyCD(image)
 
                     if Image.cd:
+                        Image.cd.updateKey(Image.cb.key)
+                        Image.cd.decrypt()
+
                         image.seek(Image.cd.header.offset + Image.cd.header.length, 0)
                         Image.identifyCE(image)
 
-                        # Set image type
-                        if Image.nandheader and Image.cb and Image.cd and Image.ce:
-                            Image.imagetype = ImageType.Retail
+                        if Image.ce:
+                            Image.ce.updateKey(Image.cd.key)
+                            Image.ce.decrypt()
+
+                            # Set image type
+                            # TODO This AND is redundent
+                            if Image.nandheader and Image.cb and Image.cd and Image.ce:
+                                Image.imagetype = ImageType.Retail
 
                 # Identify devkit NAND structures
                 elif Image.sb:
+                    Image.sb.updateKey()
+                    Image.sb.decrypt()
+
                     image.seek(Image.sb.header.offset + Image.sb.header.length, 0)
                     Image.identifySC(image)
 
                     if Image.sc:
+                        Image.sc.updateKey(Constants.SECRET_ZERO)
+                        Image.sc.decrypt()
+
                         image.seek(Image.sc.header.offset + Image.sc.header.length, 0)
                         Image.identifySD(image)
 
                         if Image.sd:
+                            Image.sd.updateKey(Image.sc.key)
+                            Image.sd.decrypt()
+
                             image.seek(Image.sd.header.offset + Image.sd.header.length, 0)
                             Image.identifySE(image)
 
-                            if Image.nandheader and Image.sb and Image.sc and Image.sd and Image.se:
-                                # Determine devkit vs shadowboot by file size
-                                Image.imagetype = ImageType.Shadowboot if path.getsize(target) <= Constants.SHADOWBOOT_SIZE else ImageType.Devkit
+                            if Image.se:
+                                Image.se.updateKey(Image.sd.key)
+                                Image.se.decrypt()
+
+                                # TODO This AND is redundent
+                                if Image.nandheader and Image.sb and Image.sc and Image.sd and Image.se:
+                                    # Determine devkit vs shadowboot by file size
+                                    Image.imagetype = ImageType.Shadowboot if path.getsize(target) <= Constants.SHADOWBOOT_SIZE else ImageType.Devkit
 
         # TODO Fall back to individual structures
         # image.seek(0, 0)

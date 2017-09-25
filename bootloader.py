@@ -2,8 +2,10 @@
 
 import struct, hmac
 import Crypto.Cipher.ARC4 as RC4
+from Crypto.PublicKey import RSA
 from hashlib import sha1 as sha
 
+from common import *
 from nand import NANDSection
 
 class BootloaderHeader(NANDSection):
@@ -88,7 +90,7 @@ class BootloaderHeader(NANDSection):
         return ret
 
     def pack(self):
-        return struct.pack('>2s3H2I16s', bytes(self.name, 'ASCII'), self.build, self.pairing, self.flags, self.entry, self.length, self.salt)
+        return struct.pack('>2s3H2I16s', self.name, self.build, self.pairing, self.flags, self.entry, self.length, self.salt)
 
 class CFHeader(BootloaderHeader):
 
@@ -211,9 +213,14 @@ class Bootloader(NANDSection):
     def pack(self):
         return bytes(self.header.pack() + self.data_encrypted)
 
-class BL2(Bootloader):
+    """
+    Sign the payload with the 4BL RSA key
+    Only applies to SD, not any other bootloader
+    """
+    def sign(self):
+        raise NotImplementedError('can only sign SD bootloader')
 
-    # TODO Change to constants for 1BL key
+class BL2(Bootloader):
 
     def __init__(self, data_encrypted, header):
         try:
@@ -226,7 +233,7 @@ class BL2(Bootloader):
     def updateKey(self, salt=None):
         if salt:
             self.header.salt = salt
-        self.key = hmac.new(BL2.SECRET_1BL, self.header.salt, sha).digest()[0:0x10]
+        self.key = hmac.new(Constants.SECRET_1BL, self.header.salt, sha).digest()[0:0x10]
 
     def zeropair(self):
         # Can only zeropair once decrypted
@@ -352,6 +359,63 @@ class SD(Bootloader):
 
         if self.header.name != SD.MAGIC_BYTES:
             raise ValueError('Failed SD magic bytes check')
+
+    """
+    Sign the payload with the 4BL RSA key
+    Only applies to SD, not any other bootloader
+    """
+    def sign(self):
+
+        m = sha()
+        bl4_key = RSA.construct((Constants.BL4_MOD, Constants.BL4_PUBEXP, Constants.BL4_PRIVEXP, Constants.BL4_P, Constants.BL4_Q))
+
+        # Compute SHA1 digest of the header (0x0:0x10) and payload data (0x120:)
+        #
+        # const char salt[] = "XBOX_ROM_4";
+        #
+        # void XeCryptRotSumSha(const u8* input1, s32 input1Size,
+        #                       const u8* input2, s32 input2Size,
+        #                       u8* digest, s32 digestSize);
+        #
+        # BYTE digest[RSA_DIGEST_SIZE];
+        # XeCryptRotSumSha(SD, HMAC_SALT_OFFSET, (SD + 0x120), Size - 0x120, digest, RSA_DIGEST_SIZE);
+
+        m.update(self.data_plaintext[0:0x10])
+        m.update(self.data_plaintext[0x120:])
+        digest = m.digest()
+        print(digest)
+
+        with open('output/bl4_signature.bin', 'w+b') as sigout:
+            sigout.write(digest)
+
+        with open(Constants.unsignedFilePath, 'rb') as unsignedFile:
+            m = sha()
+            bl4data = unsignedFile.read()
+            m.update(bl4data[0:0x10])
+            m.update(bl4data[0x120:])
+            digest = m.digest()
+            print(digest)
+
+            with open('output/bl4_readsignature.bin', 'w+b') as sigout:
+                sigout.write(digest)
+
+
+        # Create a signature from the SHA1 digest and a salt
+        #
+        # bool XeCryptBnQwBeSigCreate(u64* output, const u8* hash, const u8* salt, const XeRsaKey* key);
+        #
+        # u64 tempSig[SIGNATURE_SIZE];
+        # bool success = XeCryptBnQwBeSigCreate(tempSig, digest, (BYTE*)salt, signKey);
+        ##signature = bl4_key.sign(digest + Constants.BL4_SALT, None)[0]
+        ##print(signature)
+        ##print(type(signature))
+        ##print(bytes(signature))
+
+        # "Encrypt"
+        #
+        # bool XeCryptBnQwNeRsaPrvCrypt(const u64* input, u64* output, const XeRsaKey* key);
+        #
+        # success = XeCryptBnQwNeRsaPrvCrypt(tempSig, (u64*)&SD[SIGNATURE_OFFSET], signKey);
 
 class SE(Bootloader):
 

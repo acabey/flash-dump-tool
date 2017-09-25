@@ -14,6 +14,7 @@ Usage: python3 flash-dump.py image.bin -c cpukey -x section
 
     ex. python3 flash-dump.py image.bin -c 48a3e35253c20bcc796d6ec1d5d3d811
 
+
 -x  Extract section(s)
 
     Valid sections are:
@@ -45,6 +46,7 @@ Usage: python3 flash-dump.py image.bin -c cpukey -x section
     ex. python3 flash-dump.py image.bin -r se se_patched_plain.bin
     ex. python3 flash-dump.py image.bin -r kernel xboxkrnl_patched_plain_dec.bin
 
+
 -d  Decrypt section(s)
 
     Attempts to decrypt the given sections in place or treat input as decrypted
@@ -54,6 +56,7 @@ Usage: python3 flash-dump.py image.bin -c cpukey -x section
     Used in combination with extract and replace
 
     ex. python3 flash-dump.py image.bin -d sb smc -x sb sd smc
+
 
 #-i  Insert section
 #    Provided section must be decrypted (plaintext) as well as decompressed in the case of kernel and hv
@@ -67,6 +70,7 @@ Usage: python3 flash-dump.py image.bin -c cpukey -x section
 #    ex. python3 flash-dump.py image.bin -i se se_patched_plain.bin
 #    ex. python3 flash-dump.py image.bin -i kernel xboxkrnl_patched_plain_dec.bin
 
+
 #-ir Insert / Replace section
 #    Provided section must be decrypted (plaintext) as well as decompressed in the case of kernel and hv
 #
@@ -76,6 +80,7 @@ Usage: python3 flash-dump.py image.bin -c cpukey -x section
 #
 #    ex. python3 flash-dump.py image.bin -ir se se_patched_plain.bin
 #    ex. python3 flash-dump.py image.bin -ir kernel xboxkrnl_patched_plain_dec.bin
+
 
 #-bs Build shadowboot image from sections
 #    Provided sections must be decrypted (plaintext)
@@ -89,6 +94,7 @@ Usage: python3 flash-dump.py image.bin -c cpukey -x section
 #    Will warn if expected patch slots mismatches from provided
 #
 #    ex. python3 flash-dump.py image.bin -bs smc_plain.bin sb_plain.bin sc_plain.bin sd_plain.bin se_plain.bin
+
 
 #-k  Key file path
 #
@@ -105,7 +111,9 @@ Usage: python3 flash-dump.py image.bin -c cpukey -x section
 #
 #    ex. python3 flash-dump.py -s SD_dec.bin
 
+
 --debug  Verbose output for debugging
+
 
 -v  Version
 
@@ -149,6 +157,7 @@ def main(argv):
     parser.add_argument('-d', '--decrypt', nargs='+', metavar='section', type=str, help='Decrypt section(s)')
     parser.add_argument('-x', '--extract', nargs='+', metavar='section', type=str, help='Extract section(s)')
     parser.add_argument('-r', '--replace', nargs=2, type=str, metavar=('section', '/path/to/replacement'), help='Replace decrypted section')
+    parser.add_argument('-s', '--sign', nargs=1, type=str, metavar='section', help='Sign section (SD)')
     parser.add_argument('-k', '--keyfile', nargs=1, type=str, metavar='/path/to/keyfile', help='Key file')
     parser.add_argument('-c', '--cpukey', nargs=1, type=str, metavar='cpukey', help='CPU key')
     parser.add_argument('--debug', action='store_true', help='Verbose debug output')
@@ -215,6 +224,19 @@ def main(argv):
                 failprint('Failed to replace ' + section + ': ' + str(e))
         else:
             warnprint('Section: ' + section + ' is not available in input file')
+
+    # Sign if available
+    if not args.sign== None:
+        for section in args.sign:
+            if section == 'all':
+                for availablesection in availablesections:
+                    availablesections[availablesection].sign()
+                break
+
+            if section in availablesections.keys():
+                availablesections[section].sign()
+            else:
+                warnprint('Section: ' + section + ' is not available in input file')
 
     """
     ============================================================================
