@@ -7,7 +7,7 @@ from hashlib import sha1 as sha
 class Bootloader():
 
     HEADER_SIZE = 0x20
-    SECRET_1BL = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+    SECRET_1BL = b'\xDD\x88\xAD\x0C\x9E\xD6\x69\xE7\xB5\x67\x94\xFB\x68\x56\x3E\xFA'
 
     def __init__(self, header, currentlocation):
         header = struct.unpack('>2s3H2I16s', header)
