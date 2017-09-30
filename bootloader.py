@@ -176,7 +176,7 @@ class Bootloader(NANDSection):
             self = type(self)(replacementdata.read(replacementheader.length), replacementheader)
 
     """
-    Write current (encrypted) contents to file
+    Write current (encrypted) contents to file at intended offset
     """
     def write(self, output):
         with open(output, 'r+b') as originaldata:

@@ -55,12 +55,15 @@ class Image():
             if bl2header:
                 try:
                     Image.cb = CB(image.read(bl2header.length), bl2header)
+                    dbgprint(bl2header)
                 except ValueError as e:
                     dbgprint('Failed CB header check: ' + str(e))
                 except Exception as e:
                     raise
                 try:
+                    image.seek(bl2header.offset, 0)
                     Image.sb = SB(image.read(bl2header.length), bl2header)
+                    dbgprint(bl2header)
                 except ValueError as e:
                     dbgprint('Failed SB check: ' + str(e))
                 except Exception as e:
@@ -73,6 +76,7 @@ class Image():
             bl4header = None
             offset = image.tell()
             bl4header = BootloaderHeader(image.read(BootloaderHeader.HEADER_SIZE), currentoffset=offset)
+            dbgprint(bl4header)
         except ValueError as e:
             dbgprint('Failed CD header check: ' + str(e))
         except Exception as e:
@@ -80,6 +84,7 @@ class Image():
 
         if bl4header:
             try:
+                image.seek(bl4header.offset, 0)
                 Image.cd = CD(image.read(bl4header.length), bl4header)
             except ValueError as e:
                 dbgprint('Failed CD check: ' + str(e))
@@ -93,14 +98,16 @@ class Image():
             bl5header = None
             offset = image.tell()
             bl5header = BootloaderHeader(image.read(BootloaderHeader.HEADER_SIZE), currentoffset=offset)
+            dbgprint(bl5header)
         except ValueError as e:
             dbgprint('Failed CE header check: ' + str(e))
         except Exception as e:
             raise
 
-        if bl4header:
+        if bl5header:
             try:
-                Image.ce = CD(image.read(bl5header.length), bl5header)
+                image.seek(bl5header.offset, 0)
+                Image.ce = CE(image.read(bl5header.length), bl5header)
             except ValueError as e:
                 dbgprint('Failed CE check: ' + str(e))
             except Exception as e:
@@ -113,6 +120,7 @@ class Image():
             bl3header = None
             offset = image.tell()
             bl3header = BootloaderHeader(image.read(BootloaderHeader.HEADER_SIZE), currentoffset=offset)
+            dbgprint(bl3header)
         except ValueError as e:
             dbgprint('Failed SC header check: ' + str(e))
         except Exception as e:
@@ -120,6 +128,7 @@ class Image():
 
         if bl3header:
             try:
+                image.seek(bl3header.offset, 0)
                 Image.sc = SC(image.read(bl3header.length), bl3header)
             except ValueError as e:
                 dbgprint('Failed SC check: ' + str(e))
@@ -133,6 +142,7 @@ class Image():
             bl4header = None
             offset = image.tell()
             bl4header = BootloaderHeader(image.read(BootloaderHeader.HEADER_SIZE), currentoffset=offset)
+            dbgprint(bl4header)
         except ValueError as e:
             dbgprint('Failed SD header check: ' + str(e))
         except Exception as e:
@@ -140,6 +150,7 @@ class Image():
 
         if bl4header:
             try:
+                image.seek(bl4header.offset, 0)
                 Image.sd = SD(image.read(bl4header.length), bl4header)
             except ValueError as e:
                 dbgprint('Failed SD check: ' + str(e))
@@ -153,6 +164,7 @@ class Image():
             bl5header = None
             offset = image.tell()
             bl5header = BootloaderHeader(image.read(BootloaderHeader.HEADER_SIZE), currentoffset=offset)
+            dbgprint(bl5header)
         except ValueError as e:
             dbgprint('Failed SE header check: ' + str(e))
         except Exception as e:
@@ -160,6 +172,7 @@ class Image():
 
         if bl5header:
             try:
+                image.seek(bl5header.offset, 0)
                 Image.se = SE(image.read(bl5header.length), bl5header)
             except ValueError as e:
                 dbgprint('Failed SE check: ' + str(e))
