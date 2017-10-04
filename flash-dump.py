@@ -7,14 +7,6 @@ Detect type of file as well as partial files (ie. extracted bootloader)
 
 Usage: python3 flash-dump.py image.bin -c cpukey -x section
 
--c  CPU key
-    Required to decrypt bootloaders CD and onward on retails with CB >= 1920
-    Required to decrypt keyvault
-    Required to replace encrypted sections
-
-    ex. python3 flash-dump.py image.bin -c 48a3e35253c20bcc796d6ec1d5d3d811
-
-
 -x  Extract section(s)
 
     Valid sections are:
@@ -96,20 +88,30 @@ Usage: python3 flash-dump.py image.bin -c cpukey -x section
 #    ex. python3 flash-dump.py image.bin -bs smc_plain.bin sb_plain.bin sc_plain.bin sd_plain.bin se_plain.bin
 
 
-#-k  Key file path
-#
-#    By default the programs looks for a plaintext file called "keys" in the local directory
-#
-#    Provided file must follow the format where line 1 is the 1BL RC4 key and line 2 the 4BL private key
-#
-#    ex. python3 flash-dump.py image.bin -x kernel -k /path/to/keys.txt
-#
-#-s  Sign
-#    Provided file must be decrypted (plaintext) SD
-#
-#    Signs the given 4BL with the 4BL private key
-#
-#    ex. python3 flash-dump.py -s SD_dec.bin
+-c  CPU key
+    Required to decrypt bootloaders CD and onward on retails with CB >= 1920
+    Required to decrypt keyvault
+    Required to replace encrypted sections
+
+    By default the programs looks for a binary file, "cpukey" in the "data" directory
+
+    ex. python3 flash-dump.py image.bin -c 48a3e35253c20bcc796d6ec1d5d3d811
+
+
+ -k  Key file path
+
+     By default the programs looks for a binary file, "keyfile" in the "data" directory
+
+     This file should be the binary representation of the 1BL key
+
+     ex. python3 flash-dump.py image.bin -x kernel -k /path/to/keys.txt
+
+ -s  Sign
+     Provided file must be decrypted (plaintext) SD
+
+     Signs the given 4BL with the 4BL private key
+
+     ex. python3 flash-dump.py -s SD_dec.bin
 
 
 --debug  Verbose output for debugging
@@ -171,8 +173,11 @@ def main(argv):
         Load NAND/shadowboot structures
     ============================================================================
     """
-    Image.identifyAvailableStructures(args.target)
-    availablesections = Image.getAvailableStructures()
+    try:
+        Image.identifyAvailableStructures(args.target)
+        availablesections = Image.getAvailableStructures()
+    except Exception as e:
+        failprint('Failed to identify available structures: ' + str(e))
 
 
     """
@@ -180,7 +185,26 @@ def main(argv):
     Manipulate input
     ============================================================================
     """
+    Constants.DEBUG = args.debug
+
     dbgprint('args: ' + str(args))
+
+    # CPU key if available
+    if not args.cpukey == None:
+        try:
+            Constants.CPUKEY = bytes.fromhex(args.cpukey[0])
+        except Exception as e:
+            Constants.CPUKEY = None
+            failprint('Failed to set given CPU key: ' + str(e))
+
+    # BL1 key if available
+    if not args.keyfile == None:
+        try:
+            with open(args.keyfile[0], 'rb') as keyfile:
+                Constants.SECRET_1BL = keyfile.read()
+        except Exception as e:
+            Constants.SECRET_1BL  = None
+            failprint('Failed to set 1BL key from keyfile' + str(e))
 
     # Enumerate if available
     if not args.enumerate == None:
@@ -247,6 +271,12 @@ def main(argv):
 
     ============================================================================
     """
+
+    """
+    ============================================================================
+    NAND Extras
+    ============================================================================
+    """
     if False:
         nandsections = []
 
@@ -257,7 +287,6 @@ def main(argv):
             # Make sure SMC is not null
             if not all(b == 0 for b in smcdata):
                 smc = SMC(smcdata, nandheader.smcoffset)
-# TODO Unifying interface for nandsections
 #                nandsections.append(smc)
                 print('Found valid SMC at ' + str(hex(smc.offset)))
             else:
@@ -265,7 +294,6 @@ def main(argv):
         else:
             print('SMC offset is null, skipping SMC')
 
-# TODO
         # Check for Keyvault
         # Because the keyvault's length is stored in its header, we first create the header object
         if not nandheader.kvoffset == 0:
@@ -289,69 +317,6 @@ def main(argv):
         else:
             print('Keyvault offset is null, skipping keyvault')
 
-        """
-        ============================================================================
-        NAND Extras
-        ============================================================================
-        """
-
-        # Check for 5BL (CF/SE)
-        # Retails will have 5BL (CF) and 6BL (CG)
-        if imagetype == ImageType.Retail:
-            pass
-            # Check for 5BL (CF)
-
-            # Check for 6BL (CG)
-
-            # Check for 5BL2 (CF)
-
-            # Check for 6BL2 (CG)
-        # Devkits and shadowboot ROMs will have 5BL (SE)
-        else:
-            # Check for 5BL (SE)
-            if bl4header:
-                bl5offset = bl4header.offset + bl4header.length
-                image.seek(bl5offset, 0)
-                bl5headerdata = image.read(BootloaderHeader.HEADER_SIZE)
-                # Make sure BL5 header is not null
-                if not all(b == 0 for b in bl5headerdata):
-                    bl5header = BootloaderHeader(bl5headerdata, bl5offset)
-
-                    image.seek(bl5offset, 0)
-                    bl5data = image.read(bl5header.length)
-                    # Make sure BL4 is not null
-                    if not all(b == 0 for b in bl5data):
-                        # Make proper bootloader object
-                        bl5 = Bootloader(bl5data, bl5header)
-                        nandsections.append(bl5)
-                        print('Found valid BL5: ' + bl5.header.name + ' at ' + str(hex(bl5.header.offset)))
-                        if bl4:
-                            bl5.updateKey(bl4.key)
-                            bl5.decrypt()
-                            print('Decrypted BL5')
-                        else:
-                            print('BL4 is null, cannot decrypt BL5')
-                    else:
-                        print('BL4 data is null, skipping BL5')
-                else:
-                    print('BL4 header is null, skipping BL5')
-            else:
-                print('BL4 (header) missing, skipping BL5')
-
-        # Determine if CPU key required (CD)
-        """
-        Check versions to see if CPU key will be required
-
-        Retail:
-        - CB version >= 1920
-        - Required for CD, keyvault, SMC config?
-
-        XDK
-        - Required for keyvault
-
-        Shadowboot
-        - Not required
-        """
 
     sys.exit(0)
 

@@ -366,8 +366,10 @@ class SD(Bootloader):
     """
     def sign(self):
 
+        raise NotImplementedError('bootloader signing is incomplete, disable this check if you know what you are doing')
+
         m = sha()
-        bl4_key = RSA.construct((Constants.BL4_MOD, Constants.BL4_PUBEXP, Constants.BL4_PRIVEXP, Constants.BL4_P, Constants.BL4_Q))
+        bl4_key = Constants.BL4_KEY
 
         # Compute SHA1 digest of the header (0x0:0x10) and payload data (0x120:)
         #
@@ -394,7 +396,7 @@ class SD(Bootloader):
             m.update(bl4data[0:0x10])
             m.update(bl4data[0x120:])
             digest = m.digest()
-            print(digest)
+            print(digest[0:0x14])
 
             with open('output/bl4_readsignature.bin', 'w+b') as sigout:
                 sigout.write(digest)
