@@ -20,7 +20,7 @@ Parameters are in bytes
 Returns tuple of bytes
 """
 def splitbootloader(bootloader_dec):
-    return tuple(bytes(bootloader_dec[:Constants.HV_SIZE]), bytes(bootloader_dec[Constants.HV_SIZE:]))
+    return (bytes(bootloader_dec[:Constants.HV_SIZE]), bytes(bootloader_dec[Constants.HV_SIZE:]))
 
 def main(argv):
     parser=argparse.ArgumentParser()
@@ -30,11 +30,11 @@ def main(argv):
     arggroup.add_argument('--split', '-s', help="Split decompressed CE/SE into kernel + HV parts", type=str, nargs=1, metavar='se.bin' )
     arggroup.add_argument('--combine', '-c', help="Combine split kernel + HV parts back into decompressed CE/SE", type=str, nargs=2, metavar=('hv.bin', 'xboxkrnl.bin') )
 
-    args = parser.parse_args(argv)
+    args = parser.parse_args(argv[1:])
 
     if args.split:
 
-        se = args.split
+        se = args.split[0]
 
         hv = se + '_HV.bin'
         kernel = se + '_xboxkrnl.exe'
