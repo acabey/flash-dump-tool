@@ -62,6 +62,23 @@ def extldi(ry: Union[int, c_uint64], n: int, b: int) -> c_uint64:
 
     return rldicr(ry, b, n - 1)
 
+def clrlwi(ry: Union[int, c_uint64], n: int) -> c_uint64:
+    """
+    Clear the high-order n bits of the low-order 32 bits of register Ry and place the result into register Rx,
+    clearing the high-order 32 bits of register Rx.
+
+    :param ry:
+    :param n:
+    :return:
+    """
+    if type(ry) is not c_uint64:
+        ry = c_uint64(ry)
+
+    maskLowerN = mask(64, 32 + n, 63)
+    rx = c_uint64(ry.value & maskLowerN)
+
+    return rx
+
 
 def subf(ra: c_uint64, rb: c_uint64) -> c_uint64:
     if type(ra) is not c_uint64:
