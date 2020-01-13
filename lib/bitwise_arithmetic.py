@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from typing import Union
 from ctypes import c_uint64
 
 
@@ -46,21 +47,37 @@ def rol(n: int, rotations: int, width: int) -> c_uint64:
     return shifted | rotated_carry & (2 ** width) - 1
 
 
-def rldicr(rs: c_uint64, sh: int, me: int) -> c_uint64:
+def rldicr(rs: Union[int, c_uint64], sh: int, me: int) -> c_uint64:
+    if type(rs) is not c_uint64:
+        rs = c_uint64(rs)
+
     rotated = rol(rs.value, sh, 64)
     left_mask = mask(64, 0, me)
     return c_uint64(rotated & left_mask)
 
 
-def extldi(ry: c_uint64, n: int, b: int) -> c_uint64:
+def extldi(ry: Union[int, c_uint64], n: int, b: int) -> c_uint64:
+    if type(ry) is not c_uint64:
+        ry = c_uint64(ry)
+
     return rldicr(ry, b, n - 1)
 
 
 def subf(ra: c_uint64, rb: c_uint64) -> c_uint64:
+    if type(ra) is not c_uint64:
+        ra = c_uint64(ra)
+    if type(rb) is not c_uint64:
+        rb = c_uint64(rb)
+
     mask64 = mask(64, 0, 63)
     return c_uint64(((rb.value & mask64) - (ra.value & mask64)) & mask64)
 
 
-def add(ra: c_uint64, rb: c_uint64) -> c_uint64:
+def add(ra: Union[int, c_uint64], rb: Union[int, c_uint64]) -> c_uint64:
+    if type(ra) is not c_uint64:
+        ra = c_uint64(ra)
+    if type(rb) is not c_uint64:
+        rb = c_uint64(rb)
+
     mask64 = mask(64, 0, 63)
     return c_uint64(((rb.value & mask64) + (ra.value & mask64)) & mask64)
