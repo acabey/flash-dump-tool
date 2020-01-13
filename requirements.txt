@@ -1,0 +1,3 @@
+pycrypto==2.6.1
+#hashlib
+numpy==1.18.0

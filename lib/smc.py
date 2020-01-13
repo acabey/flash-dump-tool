@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 class SMC():
-
     SMC_KEY = [0x42, 0x75, 0x4e, 0x79]
 
     def __init__(self, data, currentlocation):
@@ -21,10 +20,10 @@ class SMC():
         ret += str(hex(self.offset))
         return ret
 
-
     """
     Modify data_plaintext inline to store decrypted data
     """
+
     def decrypt(self):
 
         key = SMC.SMC_KEY
@@ -50,6 +49,7 @@ class SMC():
     """
     Modify data_encrypted inline to store decrypted data
     """
+
     # TODO Encryption and CRC calculations
     def encrypt(self):
 
@@ -64,9 +64,9 @@ class SMC():
         res = ""
         key = SMC.SMC_KEY
         for i in range(len(self.data_plaintext)):
-            j = ord(self.data_plaintext[i]) ^ (key[i&3] & 0xFF)
+            j = ord(self.data_plaintext[i]) ^ (key[i & 3] & 0xFF)
             mod = j * 0xFB
             res += chr(j)
-            key[(i+1)&3] += mod
-            key[(i+2)&3] += mod >> 8
+            key[(i + 1) & 3] += mod
+            key[(i + 2) & 3] += mod >> 8
         self.data_encrypted = res

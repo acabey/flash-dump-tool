@@ -1,30 +1,31 @@
 #!/usr/bin/env python3
 
-from enum import Enum
-
 import struct
-
+from enum import Enum
 
 """
 A unifying interface for all NAND sections to generalize and simplify extraction and output
 """
+
+
 class NANDSection():
-    """
-    Returns a formatted, printable string representing the metadata for the section
 
-    Printed out as part of enumeration
-    """
     def enumerate(self):
+        """
+        Returns a formatted, printable string representing the metadata for the section
+
+        Printed out as part of enumeration
+        """
         raise NotImplementedError()
 
-    """
-    Write contents to file in output directory
-    """
     def extract(self):
+        """
+        Write contents to file in output directory
+        """
         raise NotImplementedError()
+
 
 class NANDHeader(NANDSection):
-
     HEADER_SIZE = 0x80
     MAGIC_BYTES = b'\xFF\x4F'
     MS_COPYRIGHT = b'\xa9 2004-2011 Microsoft Corporation. All rights reserved.\x00'
@@ -53,32 +54,33 @@ class NANDHeader(NANDSection):
     }
 
     """
+
     def __init__(self, header, currentoffset=0):
         if len(header) < NANDHeader.HEADER_SIZE:
             raise ValueError('Invalid size for NAND header')
 
         header = struct.unpack('>2s3H2I64s16s2I2H5I', header)
-        self.magic = header[0]            # 2s
+        self.magic = header[0]  # 2s
         if self.magic != NANDHeader.MAGIC_BYTES:
             raise ValueError('Failed NAND header magic bytes check')
 
-        self.build = header[1]            # H
-        self.qfe = header[2]              # H
-        self.flags = header[3]            # H
-        self.bl2offset = header[4]        # I
+        self.build = header[1]  # H
+        self.qfe = header[2]  # H
+        self.flags = header[3]  # H
+        self.bl2offset = header[4]  # I
         # The length until reaching 5BL? Not sure what this really is
-        self.length = header[5]           # I
-        self.copyright = header[6]        # 64s
-        self.reserved = header[7]         # 16s
-        self.kvlength = header[8]         # I
-        self.cf1offset = header[9]        # I
-        self.patchslots = header[10]      # H
-        self.kvversion = header[11]       # H
-        self.kvoffset = header[12]        # I
-        self.patchlength = header[13]     # I
-        self.smcconfigoffset = header[14] # I
-        self.smclength = header[15]       # I
-        self.smcoffset = header[16]       # I
+        self.length = header[5]  # I
+        self.copyright = header[6]  # 64s
+        self.reserved = header[7]  # 16s
+        self.kvlength = header[8]  # I
+        self.cf1offset = header[9]  # I
+        self.patchslots = header[10]  # H
+        self.kvversion = header[11]  # H
+        self.kvoffset = header[12]  # I
+        self.patchlength = header[13]  # I
+        self.smcconfigoffset = header[14]  # I
+        self.smclength = header[15]  # I
+        self.smcoffset = header[16]  # I
 
         self.offset = currentoffset
 
@@ -134,77 +136,78 @@ class NANDHeader(NANDSection):
         ret += str(hex(self.smcoffset))
         return ret
 
-    """
-    Write header contents into Header.<build>.bin
-    """
     def extract(self):
+        """
+        Write header contents into Header.<build>.bin
+        """
         with open('output/' + 'Header' + '.' + str(self.build) + '.bin', 'w+b') as headerout:
             headerout.write(self.pack())
 
-    """
-    Replace data with contents of replacement file
-    """
     def replace(self, replacement):
+        """
+        Replace data with contents of replacement file
+        """
         with open(replacement, 'rb') as replacementdata:
             self = type(self)(replacementdata.read(NANDHeader.HEADER_SIZE), self.offset)
 
-    """
-    Write current contents to file
-    """
     def write(self, output):
+        """
+        Write current contents to file
+        """
         with open(output, 'r+b') as originaldata:
             originaldata.seek(self.offset, 0)
             originaldata.write(self.pack())
 
-
-    """
-    Check if magic bytes at the beginning of header match known NAND/shadowboot magic
-    """
     def validateMagic(self):
+        """
+        Check if magic bytes at the beginning of header match known NAND/shadowboot magic
+        """
         return self.magic == NANDHeader.MAGIC_BYTES
 
-    """
-    Check if the copyright notice matches Microsoft's known value except for the years
-    """
     def validateCopyright(self):
-        return self.copyright[0:1]+self.copyright[11:] != NANDHeader.MS_COPYRIGHT[0:1]+NANDHeader.MS_COPYRIGHT[11:]
+        """
+        Check if the copyright notice matches Microsoft's known value except for the years
+        """
+        return self.copyright[0:1] + self.copyright[11:] != NANDHeader.MS_COPYRIGHT[0:1] + NANDHeader.MS_COPYRIGHT[11:]
 
-    """
-    Pack back into C style struct
-    """
     def pack(self):
+        """
+        Pack back into C style struct
+        """
         return struct.pack('>2s3H2I64s16s2I2H5I',
-            self.magic,
-            self.build,
-            self.qfe,
-            self.flags,
-            self.bl2offset,
-            self.length,
-            self.copyright,
-            self.reserved,
-            self.kvlength,
-            self.cf1offset,
-            self.patchslots,
-            self.kvversion,
-            self.kvoffset,
-            self.patchlength,
-            self.smcconfigoffset,
-            self.smclength,
-            self.smcoffset
-        )
+                           self.magic,
+                           self.build,
+                           self.qfe,
+                           self.flags,
+                           self.bl2offset,
+                           self.length,
+                           self.copyright,
+                           self.reserved,
+                           self.kvlength,
+                           self.cf1offset,
+                           self.patchslots,
+                           self.kvversion,
+                           self.kvoffset,
+                           self.patchlength,
+                           self.smcconfigoffset,
+                           self.smclength,
+                           self.smcoffset
+                           )
+
 
 class OutputPath(NANDSection):
     def __init__(self, path):
         self.path = path
 
     def enumerate(self):
-        return 'OutputPath:\n' +  'path: ' + self.path
+        return 'OutputPath:\n' + 'path: ' + self.path
 
     def extract(self):
         pass
 
+
 class ImageType(NANDSection, Enum):
-    Retail, Devkit, Shadowboot = range(3)
+    RETAIL, DEVKIT, SHADOWBOOT = range(3)
 
     def enumerate(self):
         return str(self)

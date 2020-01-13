@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
 
 from os import path
-from enum import Enum
 
-from nand import NANDHeader, ImageType, OutputPath
-from bootloader import *
-from common import *
+from lib.bootloader import *
+from lib.common import *
+from lib.nand import NANDHeader, ImageType, OutputPath
 
 """
 Stores structures from NAND data
 
 Provides methods to identify structures from RAW data reads
 """
-class Image():
+
+
+class Image(object):
     outputpath = None
     imagetype = None
     nandheader = None
@@ -33,44 +34,46 @@ class Image():
     kernel = None
     hv = None
 
-    def getAvailableStructures():
+    def getAvailableStructures(self):
         # All variable members of this class that are not None
-        return {k:v for k,v in vars(Image).items() if not callable(getattr(Image,k)) and not k.startswith('__') and v is not None}
-        #return vars(Image)['_data']
+        return {k: v for k, v in vars(Image).items() if
+                not callable(getattr(Image, k)) and not k.startswith('__') and v is not None}
+        # return vars(Image)['_data']
 
-    """
-    Identifies bootloaders given previous is available and proper seek
-    """
+
     def identifyBL2(image):
+        """
+        Identifies bootloaders given previous is available and proper seek
+        """
 
+        try:
+            bl2header = None
+            offset = image.tell()
+            bl2header = BootloaderHeader(image.read(BootloaderHeader.HEADER_SIZE), currentoffset=offset)
+        except ValueError as e:
+            dbgprint('Failed BL2 header check: ' + str(e))
+        except Exception as e:
+            raise
+
+        if bl2header:
             try:
-                bl2header = None
-                offset = image.tell()
-                bl2header = BootloaderHeader(image.read(BootloaderHeader.HEADER_SIZE), currentoffset=offset)
+                Image.cb = CB(image.read(bl2header.length), bl2header)
+                dbgprint(bl2header)
             except ValueError as e:
-                dbgprint('Failed BL2 header check: ' + str(e))
+                dbgprint('Failed CB header check: ' + str(e))
+            except Exception as e:
+                raise
+            try:
+                image.seek(bl2header.offset, 0)
+                Image.sb = SB(image.read(bl2header.length), bl2header)
+                dbgprint(bl2header)
+            except ValueError as e:
+                dbgprint('Failed SB check: ' + str(e))
             except Exception as e:
                 raise
 
-            if bl2header:
-                try:
-                    Image.cb = CB(image.read(bl2header.length), bl2header)
-                    dbgprint(bl2header)
-                except ValueError as e:
-                    dbgprint('Failed CB header check: ' + str(e))
-                except Exception as e:
-                    raise
-                try:
-                    image.seek(bl2header.offset, 0)
-                    Image.sb = SB(image.read(bl2header.length), bl2header)
-                    dbgprint(bl2header)
-                except ValueError as e:
-                    dbgprint('Failed SB check: ' + str(e))
-                except Exception as e:
-                    raise
-
     def identifyCD(image):
-        #assert(Image.cb != None)
+        # assert(Image.cb != None)
 
         try:
             bl4header = None
@@ -92,7 +95,7 @@ class Image():
                 raise
 
     def identifyCE(image):
-        #assert(Image.cd != None)
+        # assert(Image.cd != None)
 
         try:
             bl5header = None
@@ -114,7 +117,7 @@ class Image():
                 raise
 
     def identifySC(image):
-        #assert(Image.sb != None)
+        # assert(Image.sb != None)
 
         try:
             bl3header = None
@@ -136,7 +139,7 @@ class Image():
                 raise
 
     def identifySD(image):
-        #assert(Image.sc != None)
+        # assert(Image.sc != None)
 
         try:
             bl4header = None
@@ -158,7 +161,7 @@ class Image():
                 raise
 
     def identifySE(image):
-        #assert(Image.sd != None)
+        # assert(Image.sd != None)
 
         try:
             bl5header = None
@@ -205,7 +208,7 @@ class Image():
 
             # If valid header, check for subsequent parts
             if Image.nandheader:
-                image.seek(Image.nandheader.bl2offset,0)
+                image.seek(Image.nandheader.bl2offset, 0)
 
                 # Identifies either SB or CB given an image at the proper seek
                 Image.identifyBL2(image)
@@ -232,7 +235,7 @@ class Image():
                             # Set image type
                             # TODO This AND is redundent
                             if Image.nandheader and Image.cb and Image.cd and Image.ce:
-                                Image.imagetype = ImageType.Retail
+                                Image.imagetype = ImageType.RETAIL
 
                 # Identify devkit NAND structures
                 elif Image.sb:
@@ -263,7 +266,8 @@ class Image():
                                 # TODO This AND is redundent
                                 if Image.nandheader and Image.sb and Image.sc and Image.sd and Image.se:
                                     # Determine devkit vs shadowboot by file size
-                                    Image.imagetype = ImageType.Shadowboot if path.getsize(target) <= Constants.SHADOWBOOT_SIZE else ImageType.Devkit
+                                    Image.imagetype = ImageType.SHADOWBOOT if path.getsize(
+                                        target) <= Constants.SHADOWBOOT_SIZE else ImageType.DEVKIT
 
         # TODO Fall back to individual structures
         # image.seek(0, 0)

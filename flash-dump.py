@@ -121,12 +121,12 @@ Usage: python3 flash-dump.py image.bin -c cpukey -x section
 
 """
 
-import os, sys, argparse, textwrap
-from common import *
-from nand import NANDHeader, ImageType
-from bootloader import *
-from smc import SMC
-from image import Image
+import argparse
+import sys
+import textwrap
+
+from lib.image import Image
+from lib.smc import SMC
 
 # Load image
 """
@@ -138,27 +138,29 @@ Read from the provided image file
 - Construct NAND header
 """
 
-def main(argv):
 
+def main(argv):
     parser = argparse.ArgumentParser(prog='flash-dump',
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        description=textwrap.dedent('''\
+                                     formatter_class=argparse.RawDescriptionHelpFormatter,
+                                     description=textwrap.dedent('''\
         360 Flash Tool - acabey
         --------------------------------
             Load and dump information from flash dumps and shadowboot ROMs
             Should be able to detect type of file as well as partial files
         '''),
-        epilog=textwrap.dedent('''\
+                                     epilog=textwrap.dedent('''\
         Valid sections are:
             keyvault, smc, smcconfig, sb, cb, sc, sd, cd, se, ce, cf, cg, cf1, cg1, kernel, hv
         ''')
-    )
+                                     )
 
-    parser.add_argument('target', type=str, metavar='/path/to/working/file', help='Working file - NAND/Shadowboot/NAND section or output file name')
+    parser.add_argument('target', type=str, metavar='/path/to/working/file',
+                        help='Working file - NAND/Shadowboot/NAND section or output file name')
     parser.add_argument('-e', '--enumerate', nargs='+', metavar='section', type=str, help='Enumerate section(s)')
     parser.add_argument('-d', '--decrypt', nargs='+', metavar='section', type=str, help='Decrypt section(s)')
     parser.add_argument('-x', '--extract', nargs='+', metavar='section', type=str, help='Extract section(s)')
-    parser.add_argument('-r', '--replace', nargs=2, type=str, metavar=('section', '/path/to/replacement'), help='Replace decrypted section')
+    parser.add_argument('-r', '--replace', nargs=2, type=str, metavar=('section', '/path/to/replacement'),
+                        help='Replace decrypted section')
     parser.add_argument('-s', '--sign', nargs=1, type=str, metavar='section', help='Sign section (SD)')
     parser.add_argument('-k', '--keyfile', nargs=1, type=str, metavar='/path/to/keyfile', help='Key file')
     parser.add_argument('-c', '--cpukey', nargs=1, type=str, metavar='cpukey', help='CPU key')
@@ -178,7 +180,6 @@ def main(argv):
         availablesections = Image.getAvailableStructures()
     except Exception as e:
         failprint('Failed to identify available structures: ' + str(e))
-
 
     """
     ============================================================================
@@ -203,7 +204,7 @@ def main(argv):
             with open(args.keyfile[0], 'rb') as keyfile:
                 Constants.SECRET_1BL = keyfile.read()
         except Exception as e:
-            Constants.SECRET_1BL  = None
+            Constants.SECRET_1BL = None
             failprint('Failed to set 1BL key from keyfile' + str(e))
 
     # Enumerate if available
@@ -250,7 +251,7 @@ def main(argv):
             warnprint('Section: ' + section + ' is not available in input file')
 
     # Sign if available
-    if not args.sign== None:
+    if not args.sign == None:
         for section in args.sign:
             if section == 'all':
                 for availablesection in availablesections:
@@ -282,12 +283,12 @@ def main(argv):
 
         # Check for SMC
         if not nandheader.smcoffset == 0:
-            image.seek(nandheader.smcoffset,0)
+            image.seek(nandheader.smcoffset, 0)
             smcdata = image.read(nandheader.smclength)
             # Make sure SMC is not null
             if not all(b == 0 for b in smcdata):
                 smc = SMC(smcdata, nandheader.smcoffset)
-#                nandsections.append(smc)
+                #                nandsections.append(smc)
                 print('Found valid SMC at ' + str(hex(smc.offset)))
             else:
                 print('SMC is null, skipping SMC')
@@ -297,13 +298,13 @@ def main(argv):
         # Check for Keyvault
         # Because the keyvault's length is stored in its header, we first create the header object
         if not nandheader.kvoffset == 0:
-            image.seek(nandheader.kvoffset,0)
+            image.seek(nandheader.kvoffset, 0)
             keyvaultheaderdata = image.read(KeyvaultHeader.HEADER_SIZE)
             # Make sure KV header is not null
             if not all(b == 0 for b in keyvaultheaderdata):
                 keyvaultheader = KeyvaultHeader(keyvaultheaderdata, nandheader.kvoffset)
 
-                image.seek(nandheader.kvoffset,0)
+                image.seek(nandheader.kvoffset, 0)
                 keyvaultdata = image.read(keyvaultheader.length)
                 # Make sure KV is not null
                 if not all(b == 0 for b in keyvaultdata):
@@ -317,8 +318,8 @@ def main(argv):
         else:
             print('Keyvault offset is null, skipping keyvault')
 
-
     sys.exit(0)
+
 
 if __name__ == '__main__':
     main(sys.argv)

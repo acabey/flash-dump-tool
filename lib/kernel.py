@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from common import *
+from lib.common import *
 
 """
 Build a combined SE/CE bootloader buffer from HV and kernel parts
@@ -9,8 +9,11 @@ Parameters are in bytes
 
 Returns bytes
 """
+
+
 def combinehvkernel(hv_dec, kernel_dec):
     return bytes(hv_dec + kernel_dec)
+
 
 """
 Split a combined buffer into HV and kernel parts
@@ -19,16 +22,21 @@ Parameters are in bytes
 
 Returns tuple of bytes
 """
+
+
 def splitbootloader(bootloader_dec):
     return (bytes(bootloader_dec[:Constants.HV_SIZE]), bytes(bootloader_dec[Constants.HV_SIZE:]))
 
+
 def main(argv):
-    parser=argparse.ArgumentParser()
+    parser = argparse.ArgumentParser()
 
     arggroup = parser.add_mutually_exclusive_group(required=True)
 
-    arggroup.add_argument('--split', '-s', help="Split decompressed CE/SE into kernel + HV parts", type=str, nargs=1, metavar='se.bin' )
-    arggroup.add_argument('--combine', '-c', help="Combine split kernel + HV parts back into decompressed CE/SE", type=str, nargs=2, metavar=('hv.bin', 'xboxkrnl.bin') )
+    arggroup.add_argument('--split', '-s', help="Split decompressed CE/SE into kernel + HV parts", type=str, nargs=1,
+                          metavar='se.bin')
+    arggroup.add_argument('--combine', '-c', help="Combine split kernel + HV parts back into decompressed CE/SE",
+                          type=str, nargs=2, metavar=('hv.bin', 'xboxkrnl.bin'))
 
     args = parser.parse_args(argv[1:])
 
@@ -63,6 +71,8 @@ def main(argv):
 
         print('Successfully combined SE')
 
+
 if __name__ == '__main__':
     import argparse, sys
+
     main(sys.argv)
