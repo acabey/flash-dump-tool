@@ -40,7 +40,6 @@ class Image(object):
                 not callable(getattr(Image, k)) and not k.startswith('__') and v is not None}
         # return vars(Image)['_data']
 
-
     def identifyBL2(image):
         """
         Identifies bootloaders given previous is available and proper seek

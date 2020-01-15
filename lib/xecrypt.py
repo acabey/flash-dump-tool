@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-from ctypes import c_uint64
 from enum import Enum
 from hashlib import sha1
 from typing import List
@@ -140,7 +139,7 @@ def XeCryptRotSumSha(input_1: bytearray, input_2: bytearray, digest_size=20) -> 
     input_1_size = len(input_1)
     input_2_size = len(input_2)
 
-    rotsum_ctx = RotSumCtx([0]*4)
+    rotsum_ctx = RotSumCtx([0] * 4)
 
     XeCryptRotSum(rotsum_ctx, input_1, input_1_size >> 3)
     XeCryptRotSum(rotsum_ctx, input_2, input_2_size >> 3)
@@ -162,4 +161,3 @@ def XeCryptRotSumSha(input_1: bytearray, input_2: bytearray, digest_size=20) -> 
         digest_size = XE_CRYPT_SHA_HASH_SIZE
 
     return sha_ctx.digest()[:digest_size]
-
