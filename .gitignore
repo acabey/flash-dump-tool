@@ -28,3 +28,4 @@ dist/
 # Testing
 .pytest_cache/
 test/_trial*
+test/.coverage
