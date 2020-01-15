@@ -1,6 +1,7 @@
 from unittest import TestCase
-from lib.xecrypt import XeCryptRotSumSha
+
 from lib.xecrypt import XeCryptRotSum, RotSumCtx
+from lib.xecrypt import XeCryptRotSumSha
 
 
 class TestXeCryptRotSumSha(TestCase):
@@ -14,8 +15,10 @@ class TestXeCryptRotSumSha(TestCase):
         for i in range(len(buffer2)):
             buffer2[i] = 255 - (i % 255)
 
-        digest = bytes([0x31, 0xf0, 0x0b, 0x77, 0x68, 0xf9, 0x57, 0x71, 0x8c, 0x4d, 0x62, 0x84, 0xb3, 0x45, 0xcd, 0xdd, 0x37, 0x9c, 0x6e, 0xe9])
-        self.assertEquals(XeCryptRotSumSha(buffer1, buffer2, 0x20), digest)
+        digest = bytes(
+            [0x31, 0xf0, 0x0b, 0x77, 0x68, 0xf9, 0x57, 0x71, 0x8c, 0x4d, 0x62, 0x84, 0xb3, 0x45, 0xcd, 0xdd, 0x37, 0x9c,
+             0x6e, 0xe9])
+        self.assertEqual(XeCryptRotSumSha(buffer1, buffer2, 0x20), digest)
 
     def test_input_2_zero(self):
         buffer1 = bytearray(0x40)
@@ -24,15 +27,19 @@ class TestXeCryptRotSumSha(TestCase):
 
         buffer2 = bytearray(0x40)
 
-        digest = bytes([0x2a, 0xdb, 0xc2, 0x8c, 0xda, 0xca, 0x48, 0x8e, 0xa5, 0x01, 0x74, 0xa5, 0xd9, 0x80, 0x60, 0xc5, 0xf9, 0x0f, 0x5d, 0x54])
-        self.assertEquals(XeCryptRotSumSha(buffer1, buffer2, 0x20), digest)
+        digest = bytes(
+            [0x2a, 0xdb, 0xc2, 0x8c, 0xda, 0xca, 0x48, 0x8e, 0xa5, 0x01, 0x74, 0xa5, 0xd9, 0x80, 0x60, 0xc5, 0xf9, 0x0f,
+             0x5d, 0x54])
+        self.assertEqual(XeCryptRotSumSha(buffer1, buffer2, 0x20), digest)
 
     def test_input_all_zero(self):
         buffer1 = bytearray(0x40)
         buffer2 = bytearray(0x40)
 
-        digest = bytes([0x37, 0xd3, 0xb6, 0xb8, 0x4e, 0x35, 0x08, 0x0a, 0xe5, 0xf9, 0x60, 0xfd, 0xbf, 0x44, 0x26, 0x06, 0x54, 0x02, 0x7e, 0x5b])
-        self.assertEquals(XeCryptRotSumSha(buffer1, buffer2, 0x20), digest)
+        digest = bytes(
+            [0x37, 0xd3, 0xb6, 0xb8, 0x4e, 0x35, 0x08, 0x0a, 0xe5, 0xf9, 0x60, 0xfd, 0xbf, 0x44, 0x26, 0x06, 0x54, 0x02,
+             0x7e, 0x5b])
+        self.assertEqual(XeCryptRotSumSha(buffer1, buffer2, 0x20), digest)
 
 
 class TestXeCryptRotSum(TestCase):
@@ -56,7 +63,7 @@ class TestXeCryptRotSum(TestCase):
 
         XeCryptRotSum(rotsum_ctx, input_1, input_1_size >> 3)
 
-        self.assertEquals(bytes(rotsum_ctx), output)
+        self.assertEqual(bytes(rotsum_ctx), output)
 
     def test_launch_xex_zero_all(self):
 
@@ -69,7 +76,7 @@ class TestXeCryptRotSum(TestCase):
 
         XeCryptRotSum(rotsum_ctx, input_1, input_1_size >> 3)
 
-        self.assertEquals(bytes(rotsum_ctx), output)
+        self.assertEqual(bytes(rotsum_ctx), output)
 
     def test_launch_xex_zero_input(self):
 
@@ -83,7 +90,7 @@ class TestXeCryptRotSum(TestCase):
 
         XeCryptRotSum(rotsum_ctx, input_1, input_1_size >> 3)
 
-        self.assertEquals(bytes(rotsum_ctx), output)
+        self.assertEqual(bytes(rotsum_ctx), output)
 
     def test_normal(self):
 
@@ -99,7 +106,7 @@ class TestXeCryptRotSum(TestCase):
         for i in range(input_1_size):
             input_1[i] = i % 255
 
-        self.assertEquals(input_1_bytes, input_1)
+        self.assertEqual(input_1_bytes, input_1)
 
         rotsum_ctx = RotSumCtx([0] * 4)
 
@@ -108,7 +115,7 @@ class TestXeCryptRotSum(TestCase):
 
         XeCryptRotSum(rotsum_ctx, input_1, input_1_size >> 3)
 
-        self.assertEquals(bytes(rotsum_ctx), output)
+        self.assertEqual(bytes(rotsum_ctx), output)
 
     def test_normal_2(self):
 
@@ -120,12 +127,11 @@ class TestXeCryptRotSum(TestCase):
              0xdf, 0xde, 0xdd, 0xdc, 0xdb, 0xda, 0xd9, 0xd8, 0xd7, 0xd6, 0xd5, 0xd4, 0xd3, 0xd2, 0xd1, 0xd0,
              0xcf, 0xce, 0xcd, 0xcc, 0xcb, 0xca, 0xc9, 0xc8, 0xc7, 0xc6, 0xc5, 0xc4, 0xc3, 0xc2, 0xc1, 0xc0])
 
-
         input_2 = bytearray(input_2_size)
         for i in range(input_2_size):
             input_2[i] = 255 - (i % 255)
 
-        self.assertEquals(input_2_bytes, input_2)
+        self.assertEqual(input_2_bytes, input_2)
 
         output_1 = bytes([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                           0x83, 0x62, 0xe0, 0xd8, 0xd7, 0xd3, 0xc3, 0x83,
@@ -141,4 +147,4 @@ class TestXeCryptRotSum(TestCase):
 
         XeCryptRotSum(rotsum_ctx, input_2, input_2_size >> 3)
 
-        self.assertEquals(bytes(rotsum_ctx), output_2)
+        self.assertEqual(bytes(rotsum_ctx), output_2)
