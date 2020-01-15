@@ -127,21 +127,10 @@ import logging
 
 from lib import keys
 from lib.image import Image
-from lib.smc import SMC
 
 
 logging.basicConfig()
 LOGGER = logging.getLogger('flash-dump-tool')
-
-# Load image
-"""
-Read from the provided image file
-
-- Check valid image
-    - Magic bytes (hard)
-    - Copyright (soft)
-- Construct NAND header
-"""
 
 
 def main():
@@ -179,6 +168,16 @@ def main():
         LOGGER.setLevel(logging.DEBUG)
 
     LOGGER.debug('args: ' + str(args))
+
+    # Load image
+    """
+    Read from the provided image file
+    
+    - Check valid image
+        - Magic bytes (hard)
+        - Copyright (soft)
+    - Construct NAND header
+    """
 
     # Load input metadata and populate available sections
     """
@@ -271,62 +270,6 @@ def main():
                 availablesections[section].sign()
             else:
                 LOGGER.warning('Section: ' + section + ' is not available in input file')
-
-    """
-    ============================================================================
-    DEPRECATED
-
-    This is code from prior revisions that I have not refactored.
-    It will be kept (inaccesible) as a reference until implemented in new structure
-
-    ============================================================================
-    """
-
-    """
-    ============================================================================
-    NAND Extras
-    ============================================================================
-    """
-    if False:
-        nandsections = []
-        nandheader = None
-
-        # Check for SMC
-        if not nandheader.smcoffset == 0:
-            image.seek(nandheader.smcoffset, 0)
-            smcdata = image.read(nandheader.smclength)
-            # Make sure SMC is not null
-            if not all(b == 0 for b in smcdata):
-                smc = SMC(smcdata, nandheader.smcoffset)
-                #                nandsections.append(smc)
-                print('Found valid SMC at ' + str(hex(smc.offset)))
-            else:
-                print('SMC is null, skipping SMC')
-        else:
-            print('SMC offset is null, skipping SMC')
-
-        # Check for Keyvault
-        # Because the keyvault's length is stored in its header, we first create the header object
-        if not nandheader.kvoffset == 0:
-            image.seek(nandheader.kvoffset, 0)
-            keyvaultheaderdata = image.read(KeyvaultHeader.HEADER_SIZE)
-            # Make sure KV header is not null
-            if not all(b == 0 for b in keyvaultheaderdata):
-                keyvaultheader = KeyvaultHeader(keyvaultheaderdata, nandheader.kvoffset)
-
-                image.seek(nandheader.kvoffset, 0)
-                keyvaultdata = image.read(keyvaultheader.length)
-                # Make sure KV is not null
-                if not all(b == 0 for b in keyvaultdata):
-                    keyvault = Keyvault(keyvaultheader, keyvaultdata)
-                    nandsections.append(keyvault)
-                    print('Found valid keyvault at ' + str(hex(keyvault.offset)))
-                else:
-                    print('Keyvault data is null, skipping keyvault')
-            else:
-                print('Keyvault header is null, skipping keyvault')
-        else:
-            print('Keyvault offset is null, skipping keyvault')
 
 
 if __name__ == '__main__':
