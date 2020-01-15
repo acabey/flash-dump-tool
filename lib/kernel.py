@@ -2,30 +2,27 @@
 
 from lib.common import *
 
-"""
-Build a combined SE/CE bootloader buffer from HV and kernel parts
 
-Parameters are in bytes
+def combinehvkernel(hv_dec, kernel_dec) -> bytes:
+    """
+    Build a combined SE/CE bootloader buffer from HV and kernel parts
 
-Returns bytes
-"""
+    Parameters are in bytes
 
-
-def combinehvkernel(hv_dec, kernel_dec):
+    Returns bytes
+    """
     return bytes(hv_dec + kernel_dec)
 
 
-"""
-Split a combined buffer into HV and kernel parts
+def splitbootloader(bootloader_dec) -> bytes:
+    """
+    Split a combined buffer into HV and kernel parts
 
-Parameters are in bytes
+    Parameters are in bytes
 
-Returns tuple of bytes
-"""
-
-
-def splitbootloader(bootloader_dec):
-    return (bytes(bootloader_dec[:Constants.HV_SIZE]), bytes(bootloader_dec[Constants.HV_SIZE:]))
+    Returns tuple of bytes
+    """
+    return bytes(bootloader_dec[:Constants.HV_SIZE]), bytes(bootloader_dec[Constants.HV_SIZE:])
 
 
 def main(argv):

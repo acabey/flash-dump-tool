@@ -122,11 +122,16 @@ Usage: python3 flash-dump.py image.bin -c cpukey -x section
 """
 
 import argparse
-import sys
 import textwrap
+import logging
 
+from lib import keys
 from lib.image import Image
 from lib.smc import SMC
+
+
+logging.basicConfig()
+LOGGER = logging.getLogger('flash-dump-tool')
 
 # Load image
 """
@@ -139,7 +144,7 @@ Read from the provided image file
 """
 
 
-def main(argv):
+def main():
     parser = argparse.ArgumentParser(prog='flash-dump',
                                      formatter_class=argparse.RawDescriptionHelpFormatter,
                                      description=textwrap.dedent('''\
@@ -168,6 +173,13 @@ def main(argv):
     parser.add_argument('-v', '--version', action='version', version='%(prog)s 0.5', help='Version')
     args = parser.parse_args()
 
+    if args.verbose:
+        LOGGER.setLevel(logging.INFO)
+    if args.debug:
+        LOGGER.setLevel(logging.DEBUG)
+
+    LOGGER.debug('args: ' + str(args))
+
     # Load input metadata and populate available sections
     """
     ============================================================================
@@ -179,36 +191,33 @@ def main(argv):
         Image.identifyAvailableStructures(args.target)
         availablesections = Image.getAvailableStructures()
     except Exception as e:
-        failprint('Failed to identify available structures: ' + str(e))
+        LOGGER.error('Failed to identify available structures: ' + str(e))
 
     """
     ============================================================================
     Manipulate input
     ============================================================================
     """
-    Constants.DEBUG = args.debug
-
-    dbgprint('args: ' + str(args))
 
     # CPU key if available
-    if not args.cpukey == None:
+    if args.cpukey is not None:
         try:
-            Constants.CPUKEY = bytes.fromhex(args.cpukey[0])
+            keys.CPUKEY = bytes.fromhex(args.cpukey[0])
         except Exception as e:
-            Constants.CPUKEY = None
-            failprint('Failed to set given CPU key: ' + str(e))
+            keys.CPUKEY = None
+            LOGGER.error('Failed to set given CPU key: ' + str(e))
 
     # BL1 key if available
-    if not args.keyfile == None:
+    if args.keyfile is not None:
         try:
             with open(args.keyfile[0], 'rb') as keyfile:
-                Constants.SECRET_1BL = keyfile.read()
+                keys.SECRET_1BL = keyfile.read()
         except Exception as e:
-            Constants.SECRET_1BL = None
-            failprint('Failed to set 1BL key from keyfile' + str(e))
+            keys.SECRET_1BL = None
+            LOGGER.error('Failed to set 1BL key from keyfile' + str(e))
 
     # Enumerate if available
-    if not args.enumerate == None:
+    if args.enumerate is not None:
         for section in args.enumerate:
             if section == 'all':
                 for availablesection in availablesections:
@@ -221,10 +230,10 @@ def main(argv):
                 print('==== ' + section + ' ====')
                 print(availablesections[section].enumerate())
             else:
-                warnprint('Section: ' + section + ' is not available in input file')
+                LOGGER.warning('Section: ' + section + ' is not available in input file')
 
     # Extract if available
-    if not args.extract == None:
+    if args.extract is not None:
         for section in args.extract:
             if section == 'all':
                 for availablesection in availablesections:
@@ -234,24 +243,24 @@ def main(argv):
             if section in availablesections.keys():
                 availablesections[section].extract()
             else:
-                warnprint('Section: ' + section + ' is not available in input file')
+                LOGGER.warning('Section: ' + section + ' is not available in input file')
 
     # Replace if available
-    if not args.replace == None:
+    if args.replace is not None:
         section = args.replace[0]
         replacementpath = args.replace[1]
-        dbgprint(availablesections.keys())
+        LOGGER.debug(availablesections.keys())
         if section in availablesections.keys():
             try:
                 availablesections[section].replace(replacementpath)
                 availablesections[section].write(Image.outputpath.path)
             except Exception as e:
-                failprint('Failed to replace ' + section + ': ' + str(e))
+                LOGGER.error('Failed to replace ' + section + ': ' + str(e))
         else:
-            warnprint('Section: ' + section + ' is not available in input file')
+            LOGGER.warning('Section: ' + section + ' is not available in input file')
 
     # Sign if available
-    if not args.sign == None:
+    if args.sign is not None:
         for section in args.sign:
             if section == 'all':
                 for availablesection in availablesections:
@@ -261,7 +270,7 @@ def main(argv):
             if section in availablesections.keys():
                 availablesections[section].sign()
             else:
-                warnprint('Section: ' + section + ' is not available in input file')
+                LOGGER.warning('Section: ' + section + ' is not available in input file')
 
     """
     ============================================================================
@@ -280,6 +289,7 @@ def main(argv):
     """
     if False:
         nandsections = []
+        nandheader = None
 
         # Check for SMC
         if not nandheader.smcoffset == 0:
@@ -318,8 +328,6 @@ def main(argv):
         else:
             print('Keyvault offset is null, skipping keyvault')
 
-    sys.exit(0)
-
 
 if __name__ == '__main__':
-    main(sys.argv)
+    main()

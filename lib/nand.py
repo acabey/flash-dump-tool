@@ -8,7 +8,7 @@ A unifying interface for all NAND sections to generalize and simplify extraction
 """
 
 
-class NANDSection():
+class NANDSection(object):
 
     def enumerate(self):
         """
@@ -34,23 +34,23 @@ class NANDHeader(NANDSection):
     See: https://free60.acabey.xyz/index.php/NAND_File_System
 
     struct NAND_HEADER {
-    	uint32_t wMagic; // 0xFF4F
-    	uint32_t wBuild;
-    	uint32_t wQfe;
-    	uint32_t wFlags;
-    	uint64_t dwEntry;
-    	uint64_t dwSize;
-    	uint8_t abCopyright[64];
-    	uint8_t abReserved[16]; // 0x0 filled
-    	uint64_t dwKeyVaultSize; // size of the keyvault
-    	uint64_t dwSysUpdateAddr; // offset to first cf
-    	uint32_t wSysUpdateCount; // number of patch slots
-    	uint32_t wKeyVaultVersion; // 0x0712
-    	uint64_t dwKeyVaultAddr; // offset of the keyvault from 0
-    	uint64_t dwPatchSlotSize; // if == 0 then = 0x10000, patch slot size
-    	uint64_t dwSmcConfigAddr; // 0x0
-    	uint64_t dwSmcBootSize; // size of smc.bin
-    	uint64_t dwSmcBootAddr; // offset of smc.bin from 0
+        uint32_t wMagic; // 0xFF4F
+        uint32_t wBuild;
+        uint32_t wQfe;
+        uint32_t wFlags;
+        uint64_t dwEntry;
+        uint64_t dwSize;
+        uint8_t abCopyright[64];
+        uint8_t abReserved[16]; // 0x0 filled
+        uint64_t dwKeyVaultSize; // size of the keyvault
+        uint64_t dwSysUpdateAddr; // offset to first cf
+        uint32_t wSysUpdateCount; // number of patch slots
+        uint32_t wKeyVaultVersion; // 0x0712
+        uint64_t dwKeyVaultAddr; // offset of the keyvault from 0
+        uint64_t dwPatchSlotSize; // if == 0 then = 0x10000, patch slot size
+        uint64_t dwSmcConfigAddr; // 0x0
+        uint64_t dwSmcBootSize; // size of smc.bin
+        uint64_t dwSmcBootAddr; // offset of smc.bin from 0
     }
 
     """

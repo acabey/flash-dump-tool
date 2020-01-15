@@ -140,7 +140,7 @@ class XeCrypt_PSS_SigScheme(PSS_SigScheme):
         if not (self.cqw == 0x00000020):
             raise ValueError('Invalid cqw')
 
-        if not (self.dwPubExp == 0x00010001 or key.dwPubExp == 0x00000011):
+        if not (self.dwPubExp == 0x00010001 or self.dwPubExp == 0x00000011):
             raise ValueError('Invalid public exponent')
 
         output = bytearray(0x100)

@@ -2,18 +2,25 @@
 
 import struct
 import sys
+import logging
 
-from lib.common import *
+logging.basicConfig()
+LOGGER = logging.getLogger('patcher')
 
-
-# Apply KXAM patches to a target
 
 def patch(originaldata, patchset):
-    # Patch format
-    # 4 byte offet
-    # 4 byte count
-    # 4 byte * count patch payload
+    """
+    Apply KXAM patches to a target
 
+    Patch format
+      4 byte offset
+      4 byte count
+      4 byte * count patch payload
+
+    :param originaldata:
+    :param patchset:
+    :return:
+    """
     # Get the patch offset
     # Get the patch size
 
@@ -25,19 +32,19 @@ def patch(originaldata, patchset):
     while (patchoffsetbytes != b'\xFF\xFF\xFF\xFF'):
         patchoffsetbytes = bytes(patchset[currentoffset:currentoffset + 4])
         patchoffset = struct.unpack('>I', patchoffsetbytes)[0]
-        dbgprint('patch offset: ' + str(hex(patchoffset)))
+        LOGGER.debug('patch offset: ' + str(hex(patchoffset)))
 
         currentoffset += 4
 
         patchcountbytes = bytes(patchset[currentoffset:currentoffset + 4])
         patchcount = struct.unpack('>I', patchcountbytes)[0]
-        dbgprint('patch count : ' + str(hex(patchcount)))
-        dbgprint('payload size: ' + str(hex(patchcount * 4)))
+        LOGGER.debug('patch count : ' + str(hex(patchcount)))
+        LOGGER.debug('payload size: ' + str(hex(patchcount * 4)))
 
         currentoffset += 4
 
         patchpayloadbytes = bytes(patchset[currentoffset:currentoffset + 4 * patchcount])
-        dbgprint('payload     : ' + str(patchpayloadbytes))
+        LOGGER.debug('payload     : ' + str(patchpayloadbytes))
 
         patched_data[patchoffset:patchoffset + patchcount] = [patchpayloadbytes]
 

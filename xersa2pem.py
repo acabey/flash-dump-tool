@@ -96,8 +96,6 @@ def main():
     if args.debug:
         LOGGER.setLevel(logging.DEBUG)
 
-    LOGGER.info(args)
-
     if args.reverse:
         try:
             with open(args.pempath, 'rb') as pem_file:

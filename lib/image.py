@@ -1,19 +1,22 @@
 #!/usr/bin/env python3
 
 from os import path
+import logging
 
 from lib.bootloader import *
 from lib.common import *
 from lib.nand import NANDHeader, ImageType, OutputPath
 
-"""
-Stores structures from NAND data
-
-Provides methods to identify structures from RAW data reads
-"""
+logging.basicConfig()
+LOGGER = logging.getLogger('image')
 
 
 class Image(object):
+    """
+    Stores structures from NAND data
+
+    Provides methods to identify structures from RAW data reads
+    """
     outputpath = None
     imagetype = None
     nandheader = None
@@ -50,24 +53,24 @@ class Image(object):
             offset = image.tell()
             bl2header = BootloaderHeader(image.read(BootloaderHeader.HEADER_SIZE), currentoffset=offset)
         except ValueError as e:
-            dbgprint('Failed BL2 header check: ' + str(e))
+            LOGGER.debug('Failed BL2 header check: ' + str(e))
         except Exception as e:
             raise
 
         if bl2header:
             try:
                 Image.cb = CB(image.read(bl2header.length), bl2header)
-                dbgprint(bl2header)
+                LOGGER.debug(bl2header)
             except ValueError as e:
-                dbgprint('Failed CB header check: ' + str(e))
+                LOGGER.debug('Failed CB header check: ' + str(e))
             except Exception as e:
                 raise
             try:
                 image.seek(bl2header.offset, 0)
                 Image.sb = SB(image.read(bl2header.length), bl2header)
-                dbgprint(bl2header)
+                LOGGER.debug(bl2header)
             except ValueError as e:
-                dbgprint('Failed SB check: ' + str(e))
+                LOGGER.debug('Failed SB check: ' + str(e))
             except Exception as e:
                 raise
 
@@ -78,9 +81,9 @@ class Image(object):
             bl4header = None
             offset = image.tell()
             bl4header = BootloaderHeader(image.read(BootloaderHeader.HEADER_SIZE), currentoffset=offset)
-            dbgprint(bl4header)
+            LOGGER.debug(bl4header)
         except ValueError as e:
-            dbgprint('Failed CD header check: ' + str(e))
+            LOGGER.debug('Failed CD header check: ' + str(e))
         except Exception as e:
             raise
 
@@ -89,7 +92,7 @@ class Image(object):
                 image.seek(bl4header.offset, 0)
                 Image.cd = CD(image.read(bl4header.length), bl4header)
             except ValueError as e:
-                dbgprint('Failed CD check: ' + str(e))
+                LOGGER.debug('Failed CD check: ' + str(e))
             except Exception as e:
                 raise
 
@@ -100,9 +103,9 @@ class Image(object):
             bl5header = None
             offset = image.tell()
             bl5header = BootloaderHeader(image.read(BootloaderHeader.HEADER_SIZE), currentoffset=offset)
-            dbgprint(bl5header)
+            LOGGER.debug(bl5header)
         except ValueError as e:
-            dbgprint('Failed CE header check: ' + str(e))
+            LOGGER.debug('Failed CE header check: ' + str(e))
         except Exception as e:
             raise
 
@@ -111,7 +114,7 @@ class Image(object):
                 image.seek(bl5header.offset, 0)
                 Image.ce = CE(image.read(bl5header.length), bl5header)
             except ValueError as e:
-                dbgprint('Failed CE check: ' + str(e))
+                LOGGER.debug('Failed CE check: ' + str(e))
             except Exception as e:
                 raise
 
@@ -122,9 +125,9 @@ class Image(object):
             bl3header = None
             offset = image.tell()
             bl3header = BootloaderHeader(image.read(BootloaderHeader.HEADER_SIZE), currentoffset=offset)
-            dbgprint(bl3header)
+            LOGGER.debug(bl3header)
         except ValueError as e:
-            dbgprint('Failed SC header check: ' + str(e))
+            LOGGER.debug('Failed SC header check: ' + str(e))
         except Exception as e:
             raise
 
@@ -133,7 +136,7 @@ class Image(object):
                 image.seek(bl3header.offset, 0)
                 Image.sc = SC(image.read(bl3header.length), bl3header)
             except ValueError as e:
-                dbgprint('Failed SC check: ' + str(e))
+                LOGGER.debug('Failed SC check: ' + str(e))
             except Exception as e:
                 raise
 
@@ -144,9 +147,9 @@ class Image(object):
             bl4header = None
             offset = image.tell()
             bl4header = BootloaderHeader(image.read(BootloaderHeader.HEADER_SIZE), currentoffset=offset)
-            dbgprint(bl4header)
+            LOGGER.debug(bl4header)
         except ValueError as e:
-            dbgprint('Failed SD header check: ' + str(e))
+            LOGGER.debug('Failed SD header check: ' + str(e))
         except Exception as e:
             raise
 
@@ -155,7 +158,7 @@ class Image(object):
                 image.seek(bl4header.offset, 0)
                 Image.sd = SD(image.read(bl4header.length), bl4header)
             except ValueError as e:
-                dbgprint('Failed SD check: ' + str(e))
+                LOGGER.debug('Failed SD check: ' + str(e))
             except Exception as e:
                 raise
 
@@ -166,9 +169,9 @@ class Image(object):
             bl5header = None
             offset = image.tell()
             bl5header = BootloaderHeader(image.read(BootloaderHeader.HEADER_SIZE), currentoffset=offset)
-            dbgprint(bl5header)
+            LOGGER.debug(bl5header)
         except ValueError as e:
-            dbgprint('Failed SE header check: ' + str(e))
+            LOGGER.debug('Failed SE header check: ' + str(e))
         except Exception as e:
             raise
 
@@ -177,7 +180,7 @@ class Image(object):
                 image.seek(bl5header.offset, 0)
                 Image.se = SE(image.read(bl5header.length), bl5header)
             except ValueError as e:
-                dbgprint('Failed SE check: ' + str(e))
+                LOGGER.debug('Failed SE check: ' + str(e))
             except Exception as e:
                 raise
 
@@ -201,7 +204,7 @@ class Image(object):
                 offset = image.tell()
                 Image.nandheader = NANDHeader(image.read(NANDHeader.HEADER_SIZE), currentoffset=offset)
             except ValueError as e:
-                dbgprint('Failed NAND header check: ' + str(e))
+                LOGGER.debug('Failed NAND header check: ' + str(e))
             except Exception as e:
                 raise
 
