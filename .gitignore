@@ -24,3 +24,6 @@ lib/shadowboot.py
 # Binaries...
 build/
 dist/
+
+# Testing
+.pytest_cache/

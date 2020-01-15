@@ -1,11 +1,11 @@
-# Flash dump analyzer
+# Flash dump analyzer overview
 
 Load and dump information from flash dumps and shadowboot ROMs
 
 Detect type of file as well as partial files (ie. extracted bootloader)
 
 
-# Usage:
+## flash-dump Usage:
     ./flash-dump.py image.bin -c cpukey -x section
 
     -x  Extract section(s)
@@ -81,8 +81,58 @@ Detect type of file as well as partial files (ie. extracted bootloader)
 
 
     -v  Version
+    
+## xersa2pem Usage
 
-# Requirements:
-* libssl
-* pycrypto
-* hashlib
+    usage: XeRSA2PEM [-h] -t {public,private} [-s {1024,1536,2048,4096,guess}]
+                     [-r] [-v] [-d]
+                     xersaobj pempath
+    
+    Parse big-endian XeRSA* struct formatted binaries into PEM files
+    
+    positional arguments:
+      xersaobj              Path to XeRSA* struct formatted binary file
+      pempath               Path to PEM output file
+    
+    optional arguments:
+      -h, --help            show this help message and exit
+      -t {public,private}, --type {public,private}
+                            Type of XeRSA object
+      -s {1024,1536,2048,4096,guess}, --size {1024,1536,2048,4096,guess}
+                            Size of XeRSA key
+      -r, --reverse         Reverse process: PEM to binary file
+      -v, --verbose         Set verbose-level output
+      -d, --debug           Set debug-level output
+    
+    Example Usage:
+    
+    Convert 4096-bit private key (XeRsaPriv4096) binary file to pem:
+    
+      python3 xersa2pem.py -t private -s 4096 XeRsaPriv4096.bin XeRsaPriv4096.pem
+    
+    Convert unknown size private key binary file to pem:
+    
+      python3 xersa2pem.py -t private -s guess XeRsaPriv.bin XeRsaPriv.pem
+    
+    Convert unknown size private key binary file to pem:
+    
+      python3 xersa2pem.py -t private -s guess XeRsaPriv.bin XeRsaPriv.pem
+    
+    Convert key PEM file to appropriate binary:
+    
+      python3 xersa2pem.py -r XeRsaPriv.bin XeRsaPriv.pem
+
+## xecrypt Library Usage
+
+This will likely be moved to its own repository (and pip) in the future, but for the time being you can use the various
+ libraries provided in this for your own tools by importing from the [lib](/lib) directory
+
+# Dependencies / Environment:
+
+I recommend using the virtualenv package to automatically install all dependencies in the [requirements.txt](/requirements.txt)
+
+`virtualenv --python=python3 environment`
+
+`source environment/bin/activate`
+
+`pip install -r requirements.txt`
