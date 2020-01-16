@@ -82,6 +82,10 @@ Detect type of file as well as partial files (ie. extracted bootloader)
 
     -v  Version
     
+# XeCrypt RSA to PEM (XeRSA2PEM) Overview
+
+Convert big endian, bignumber formatted XeCryptRSA objects (binary) to PEM files.
+    
 ## xersa2pem Usage
 
     usage: XeRSA2PEM [-h] -t {public,private} [-s {1024,1536,2048,4096,guess}]
