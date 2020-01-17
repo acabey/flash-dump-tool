@@ -1,7 +1,9 @@
 from unittest import TestCase
 
-from lib.xecrypt import XeCryptBnQw_SwapLeBe
-from lib.xecrypt import XeCryptBnDw_SwapLeBe
+from Crypto.PublicKey import RSA
+from lib.xecrypt import XeCryptBnQw_SwapLeBe, XeCryptBnDw_SwapLeBe, XeCryptBnQw, XeCryptBnQw_toInt
+from lib.xecrypt_rsa_new import XeCrypt_RSA
+
 
 class TestXeCryptBnQw_SwapLeBe(TestCase):
 
@@ -55,3 +57,24 @@ class TestXeCryptBnDw_SwapLeBe(TestCase):
             bytes([0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]), 2),
             bytes([0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00]))
 
+
+class TestXeCryptBnQw(TestCase):
+
+    def test_rsa(self):
+        rsa_obj = RSA.generate(1024)
+
+        p_old_bn = XeCryptBnQw(rsa_obj.p, 64)
+        self.assertEqual(XeCryptBnQw_toInt(p_old_bn), rsa_obj.p)
+
+        n_old_bn = XeCryptBnQw(rsa_obj.n, 128)
+        self.assertEqual(XeCryptBnQw_toInt(n_old_bn), rsa_obj.n)
+
+    def test_xersa(self):
+        rsa_obj = RSA.generate(1024)
+        xecrypt_obj = XeCrypt_RSA.from_rsa_obj(rsa_obj)
+
+        p_old_bn = XeCryptBnQw(xecrypt_obj.p, 64)
+        self.assertEqual(XeCryptBnQw_toInt(p_old_bn), xecrypt_obj.p)
+
+        n_old_bn = XeCryptBnQw(xecrypt_obj.n, 128)
+        self.assertEqual(XeCryptBnQw_toInt(n_old_bn), xecrypt_obj.n)

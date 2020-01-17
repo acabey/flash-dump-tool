@@ -106,6 +106,7 @@ def main():
 
             with open(args.xersaobj, 'wb') as xeobj_file:
                 xeobj_file.write(bytes(xecrypt_obj))
+                return
 
         except (FileNotFoundError, IOError, ValueError) as e:
             LOGGER.error(str(e))

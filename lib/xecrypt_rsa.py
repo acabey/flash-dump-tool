@@ -7,7 +7,7 @@ from Crypto.Hash import SHA1
 from Crypto.PublicKey import RSA
 
 from lib.bitwise_arithmetic import clrlwi
-from lib.xecrypt import XeCryptBnQw_SwapLeBe
+from lib.xecrypt import XeCryptBnQw_SwapLeBe, XeCryptBnQw
 from lib.xecrypt_pss import XeCrypt_PSS_SigScheme, XeCrypt_Sig
 
 
@@ -28,15 +28,16 @@ class XeCrypt_RSA(object):
 
     @classmethod
     def from_rsa(cls, rsa_obj: RSA):
-        raise NotImplementedError('XeCrypt_RSA.from_rsa (reverse mode) is not yet implemented')  # TODO
+        #raise NotImplementedError('XeCrypt_RSA.from_rsa (reverse mode) is not yet implemented')  # TODO
 
         size_bits = rsa_obj.size_in_bits()
         size_bytes = rsa_obj.size_in_bytes()
+        size_bytes_half = int(size_bytes / 2)
 
-        cqw_be = struct.pack(">L", bytes([0x00, 0x00, 0x20, 0x00]))
-        dwPubExp_be = struct.pack(">L", bytes([0x00, 0x00, 0x20, 0x00]))
-        qwReserved_be = struct.pack(">Q", bytes([0x00] * 8))
-        aqwM_be = rsa_obj.n.to_bytes(size_bytes, byteorder='big_endian', signed=False)
+        cqw_be = struct.pack(">L", 0x00000020)
+        dwPubExp_be = struct.pack(">L", rsa_obj.e)
+        qwReserved_be = struct.pack(">Q", 0x0000000000000000)
+        aqwM_be = XeCryptBnQw(rsa_obj.n, size_bytes)
 
         xeKeyPub = cqw_be + dwPubExp_be + qwReserved_be + aqwM_be
 
@@ -50,11 +51,11 @@ class XeCrypt_RSA(object):
 
             return xecrypt_class(xeKeyPub)
         else:
-            aqwP_be = rsa_obj.p.to_bytes(size_bytes / 2, byteorder='big_endian', signed=False)
-            aqwQ_be = rsa_obj.q.to_bytes(size_bytes / 2, byteorder='big_endian', signed=False)
-            aqwDP_be = rsa_obj.dp.to_bytes(size_bytes / 2, byteorder='big_endian', signed=False)
-            aqwDQ_be = rsa_obj.dq.to_bytes(size_bytes / 2, byteorder='big_endian', signed=False)
-            aqwCR_be = rsa_obj.u.to_bytes(size_bytes / 2, byteorder='big_endian', signed=False)
+            aqwP_be = XeCryptBnQw(rsa_obj.p, size_bytes_half)
+            aqwQ_be = XeCryptBnQw(rsa_obj.q, size_bytes_half)
+            aqwDP_be = XeCryptBnQw((rsa_obj.d % (rsa_obj.p - 1)), size_bytes_half)
+            aqwDQ_be = XeCryptBnQw((rsa_obj.d % (rsa_obj.q - 1)), size_bytes_half)
+            aqwCR_be = XeCryptBnQw(rsa_obj.u,size_bytes_half)
             xecrypt_class = {
                 1024: XeCrypt_RSAPrv_1024,
                 1536: XeCrypt_RSAPrv_1536,
@@ -97,8 +98,11 @@ class XeCrypt_RsaPrv_Abs(XeCrypt_RsaPub_Abs):
         n = self.aqwM
         e = self.dwPubExp
         d = modinv(e, (self.aqwP - 1) * (self.aqwQ - 1))
+        p = self.aqwP
+        q = self.aqwQ
+        u = self.aqwCR
 
-        self.rsa = RSA.construct((n, e, d))
+        self.rsa = RSA.construct((n, e, d, q, p))
 
         return self.rsa
 
@@ -547,16 +551,14 @@ def egcd(a: int, b: int) -> int:
 
     Took from SO https://stackoverflow.com/questions/4798654/modular-multiplicative-inverse-function-in-python
     """
-    lastremainder, remainder = abs(a), abs(b)
-    x, lastx, y, lasty = 0, 1, 1, 0
-    while remainder:
-        lastremainder, (quotient, remainder) = remainder, divmod(lastremainder, remainder)
-        x, lastx = lastx - quotient * x, x
-        y, lasty = lasty - quotient * y, y
-    return lastremainder, lastx * (-1 if a < 0 else 1), lasty * (-1 if b < 0 else 1)
+    if a == 0:
+        return (b, 0, 1)
+    else:
+        g, y, x = egcd(b % a, a)
+        return (g, x - (b // a) * y, y)
 
 
-def modinv(a: int, m: int) -> int:
+def _modinv(a: int, m: int) -> int:
     """
     Multiplicative modular inverse of a
     :param a: arbitary int
@@ -568,3 +570,9 @@ def modinv(a: int, m: int) -> int:
     if g != 1:
         raise ValueError('modinv for {} does not exist'.format(a))
     return x % m
+
+
+def modinv(a: int, m: int) -> int:
+    from Crypto.Math.Numbers import Integer
+    _a = Integer(a)
+    return int(_a.inverse(m))

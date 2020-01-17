@@ -393,3 +393,159 @@ def new(rsa_key, **kwargs):
     return XeCrypt_PSS_SigScheme(rsa_key, mask_func, salt_len, rand_func)
 
 
+def XeCryptBnQwBeSigFormat(hash_input: bytes, salt: bytes, key: XeCrypt_PSS_SigScheme) -> XeCrypt_Sig:
+    """
+    Export 357
+
+    Generates PKCS #1 RSASSA-PSS signature using SHA1 for hashing and RC4 as a type of MGF
+    MGF deviates from PKCS specifcation
+
+    void XeCryptBnQwBeSigFormat(XeCrypt_PSS_Sig* output, const u8* pHash, const u8* pSalt);
+
+    :param hash_input: 20 byte digest
+    :param salt: 10 byte arbitrary data
+    :param key: implements logic using pycryptodome PSS_SigScheme object
+    :return: bytes representing XeCrypt_PSS_Sig Struct
+    """
+    return key.XeCryptBnQwBeSigFormat(hash_input, salt)
+
+
+def XeCryptBnQwBeSigCreate(hash_input: bytes, salt: bytes, key: XeCrypt_PSS_SigScheme) -> bytes:
+    """
+    Export 357
+
+    Generates PKCS #1 RSASSA-PSS signature using SHA1 for hashing and RC4 as a type of MGF
+    MGF deviates from PKCS specifcation
+
+    :param hash_input: 20 byte digest
+    :param salt: 10 byte arbitrary data
+    :param key: implements logic using pycryptodome PSS_SigScheme object
+    :return: bytes representing XeCrypt_PSS_Sig Struct
+    """
+    return key.XeCryptBnQwBeSigCreate(hash_input, salt)
+
+
+def Old_XeCryptBnQwBeSigFormat(hash_input: bytes, salt: bytes) -> bytes:
+    """
+    Export 357
+
+    Generates PKCS #1 RSASSA-PSS signature using SHA1 for hashing and RC4 as a type of MGF
+    MGF deviates from PKCS specifcation
+
+    void XeCryptBnQwBeSigFormat(XeCrypt_PSS_Sig* output, const u8* pHash, const u8* pSalt);
+
+    :param hash_input: 20 byte digest
+    :param salt: 10 byte arbitrary data
+    :return: bytes representing XeCrypt_PSS_Sig Struct
+    """
+    output = bytearray(XeCrypt_Sig.STRUCT_SIZE)
+    output[0:0xE0] = [0] * 0xE0  # Zero out first 0xE0 bytes
+
+    output[0xE0] = 0x1
+
+    output[0xE1:0xE1 + 0xA] = salt  # Copy salt into output starting at 0xE1
+
+    output[0xFF] = 0xBC
+
+    sha_ctx = SHA1.new()
+    sha_ctx.update(output[0:8])
+    sha_ctx.update(hash_input[0:0x14])
+    sha_ctx.update(salt[0:0xA])
+
+    hash_input = sha_ctx.digest()  # Re-assign, does not change value in place
+    output[0xEB: 0xEB + 0x14] = hash_input
+
+    rc4_ctx = RC4.new(hash_input)
+    encrypted = rc4_ctx.encrypt(bytes(output[0:0xEB]))
+    output[0:0xEB] = encrypted
+
+    # temp = output[0] & 0xD  # lbz r9, 0(output) | clrlwi r9, r9, 25
+    temp = clrlwi(output[0], 25)  # lbz r9, 0(output) | clrlwi r9, r9, 25
+    index11 = 0xF8
+    index10 = 0
+
+    # Skipped what I think is an alignment check? Maybe an endian check?
+    # addi r11, output, 0xF8 | cmplw cr6, output, r11 | bge cr6, end
+    # if &output & 0x00000000FFFFFFFF > (&output + index11) & 0x00000000FFFFFFFF: return
+
+    output[0] = temp.value
+
+    while index10 < index11:
+        r9 = int.from_bytes(output[index11:index11 + 8], byteorder='big',
+                            signed=False)  # ld r9, 0(r11) # r9 = (DWORD) r11[0]
+        r8 = int.from_bytes(output[index10:index10 + 8], byteorder='big',
+                            signed=False)  # ld r8, 0(r10) # r8 = (DWORD) r10[0]
+
+        output[index10:index10 + 8] = r9.to_bytes(8, byteorder='big',
+                                                  signed=False)  # std r9, 0(r10) # r10[0] = (DWORD) r9
+        index10 += 8  # addi r10, r10, 8 # r10 += 0x8
+
+        output[index11:index11 + 8] = r8.to_bytes(8, byteorder='big',
+                                                  signed=False)  # std r8, 0(r11) # r11[0] = (DWORD) r8
+        index11 -= 8  # addi r11, r11, -8  # r11 -= 0x8
+        # cmplw cr6, r10, r11
+        # blt cr6, swapping_loop
+
+    return XeCrypt_Sig.from_bytes(bytes(output))
+
+
+def Old_XeCryptBnQwBeSigCreate(hash_input: bytes, salt: bytes, key: XeCrypt_PSS_SigScheme) -> bytes:
+    """
+    Export 356
+
+    Generates PKCS #1 RSASSA-PSS signature using SHA1 for hashing and RC4 as a type of MGF
+    MGF deviates from PKCS specifcation
+
+    bool XeCryptBnQwBeSigCreate(XeCrypt_PSS_Sig* output, const u8* pHash, const u8* pSalt, const XECRYPT_RSA* key)
+    returns: TRUE if successful
+             FALSE if error
+
+
+    :param hash_input: 20 byte digest
+    :param salt: 10 byte arbitrary data
+    :param key: implements logic using pycryptodome PSS_SigScheme object
+    :return: bytes representing XeCrypt_PSS_Sig Struct
+
+    """
+    if not (key.cqw == 0x00000020):
+        raise ValueError('Invalid cqw')
+
+    if not (key.dwPubExp == 0x00010001 or key.dwPubExp == 0x00000011):
+        raise ValueError('Invalid public exponent')
+
+    output = XeCryptBnQwBeSigFormat(hash_input, salt)
+    output_bn = int.from_bytes(XeCryptBnQw_SwapLeBe(output[0:0x20], 0x4), byteorder='little')
+
+    # Ensure large enough modulus to encrypt data
+    if XeCryptBnQwNeCompare(output_bn, key.aqwM) > 0:
+        raise ValueError('Invalid sigformat output')
+
+    buffer320 = bytearray(0x20 * 8)
+    buffer320[0:0x20] = [0] * 0x20 * 8  # XeCryptBnQw_Zero
+
+    r11 = 0x00000000FFFFFFFF & key.dwPubExp
+    r11 -= 1
+    r11 = r11 << 11 & 0xFFFFFFFF00000000  # slwi r11, r11, 11
+    buffer320[0:8] = r11.to_bytes(8, byteorder='big', signed=False)
+    bn320 = r11
+
+    buffer220 = bytearray(0x20 * 8)
+    buffer220[0:0x20] = [0] * 0x20 * 8  # XeCryptBnQw_Zero
+    r11 = 2
+    buffer220[0:8] = r11.to_bytes(8, byteorder='big', signed=False)
+    bn220 = r11
+
+    bn320 = (bn220 ^ bn320) % key.aqwM  # XeCryptBnQwNeModExp(bn_320, bn_220, bn_320, mod)
+
+
+def XeCryptBnQwBeSigVerify(sig: bytes, hash: bytes, salt: bytes, key: XeCrypt_RSA) -> bool:
+    """
+    Export 358
+
+    bool XeCryptBnQwBeSigVerify(XeCrypt_PSS_Sig* pSig, const u8* pbHash, const u8* pbSalt, const XECRYPT_RSA* pKey);
+
+    returns:   TRUE if successful
+               FALSE if error
+    """
+    pass
+

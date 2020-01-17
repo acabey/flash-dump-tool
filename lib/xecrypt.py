@@ -7,13 +7,6 @@ from typing import List
 from lib.bitwise_arithmetic import *
 from lib.endian import *
 
-
-# Flags to signify encryption or decryption
-class XeCryptFlag(Enum):
-    XE_CRYPT_DEC = 0
-    XE_CRYPT_ENC = 1
-
-
 # Sizes of blocks and hashes
 XE_CRYPT_MD5_HASH_SIZE = 16
 XE_CRYPT_SHA_HASH_SIZE = 20
@@ -48,6 +41,28 @@ class RotSumCtx(object):
 
     def __bytes__(self):
         return struct.pack('>4Q', *[m.value for m in self.members])
+
+
+def XeCryptBnQw(n: int, size_bytes: int) -> bytes:
+    """
+    Utility function to convert a given int to quadword (Qw) Big Number (Bn) representation. This is an octet string
+    similar to the openSSL BN format, but each 8-bytes is explicitly big-endian.
+
+    :param n: arbitrary integer
+    :param size_bytes: how big of a bn is required for the integer
+    :return: octet string
+    """
+    return XeCryptBnQw_SwapLeBe(n.to_bytes(size_bytes, byteorder='little', signed=False), size_bytes // 8)
+
+
+def XeCryptBnQw_toInt(bn: bytes) -> int:
+    """
+    Utility function to convert a given quadword (Qw) Big Number (Bn) to the Python native int representation.
+
+    :param bn: octet string
+    :return: int representation
+    """
+    return int.from_bytes(XeCryptBnQw_SwapLeBe(bn, len(bn) // 8), byteorder='little', signed=False)
 
 
 def XeCryptBnQw_SwapLeBe(input: bytes, size: int) -> bytes:
