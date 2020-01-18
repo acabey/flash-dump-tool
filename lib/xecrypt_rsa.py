@@ -170,8 +170,8 @@ class XeCrypt_RSA(RSA.RsaKey):
         """
         return RSA.import_key(extern_key, passphrase)
 
-    def export_key(self, format:str='PEM', passphrase:str=None, pkcs:int=1,
-                   protection:str=None, randfunc:int=None) -> bytes:
+    def export_key(self, format: str='PEM', passphrase: str=None, pkcs: int=1,
+                   protection: str=None, randfunc: int=None) -> bytes:
         """Export this RSA key.
 
         Args:
