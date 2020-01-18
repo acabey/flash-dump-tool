@@ -3,7 +3,7 @@ from unittest import TestCase
 import struct
 
 from Crypto.PublicKey import RSA
-from lib.xecrypt_rsa_new import XeCrypt_RSA
+from lib.xecrypt_rsa import XeCrypt_RSA
 
 from lib.xecrypt import XeCryptBnQw
 

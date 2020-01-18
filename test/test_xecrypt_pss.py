@@ -1,7 +1,9 @@
 from unittest import TestCase
 
 from lib.keys import XEKEY_RSA_PRIV_2048_LIVE_DEVKIT_4BL, BL_SALT
-from lib.xecrypt_rsa import *
+from lib.xecrypt_pss import (XeCryptBnQwBeSigFormat, XeCryptBnQwBeSigCreate,
+                             Old_XeCryptBnQwBeSigCreate, Old_XeCryptBnQwBeSigFormat,
+                             XeCrypt_Sig)
 
 
 class TestXeCryptBnQwBeSigCreate(TestCase):

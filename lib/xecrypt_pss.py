@@ -34,13 +34,15 @@ from Crypto.Hash import SHA1
 from Crypto.Signature.pss import PSS_SigScheme
 
 from Crypto.Util.py3compat import bchr, bord, iter_range
-import Crypto.Util.number
 from Crypto.Util.number import (ceil_div,
                                 long_to_bytes,
-                                bytes_to_long
                                 )
 from Crypto.Util.strxor import strxor
 from Crypto import Random
+
+from lib.xecrypt_rsa import XeCrypt_RSA
+from lib.bitwise_arithmetic import clrlwi
+from lib.xecrypt import XeCryptBnQw_SwapLeBe, XeCryptBnQwNeCompare
 
 
 class XeCrypt_Sig(object):

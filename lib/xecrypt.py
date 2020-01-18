@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-from enum import Enum
 from hashlib import sha1
 from typing import List
 
@@ -95,6 +94,81 @@ def XeCryptBnDw_SwapLeBe(input: bytes, size: int) -> bytes:
     return struct.pack(">" + str(size) + "L", *struct.unpack("<" + str(size) + "L", input))
 
 
+def XeCryptBnQwNeCompare(num1: Union[int, bytes], num2: Union[int, bytes]) -> bool:
+    """
+    int XeCryptBnQwNeCompare(BN* num1, BN* num2, size_t size);
+        Compare two big numbers of given size
+        Return -1 if different, return 0 if equal value
+
+
+    Python implementation stores bignumbers as int
+    """
+    if type(num1) is bytes:
+        num1 = XeCryptBnQw_toInt(num1)
+    if type(num2) is bytes:
+        num2 = XeCryptBnQw_toInt(num2)
+    return num1 == num2
+
+
+def XeCryptBnQwNeModExp(input: int, exponent: int, modulus: int) -> int:
+    """
+    Export 359
+
+    bool XeCryptBnQwNeModExp(u64* bnOutput, const u64* bnInput, const u64* bnExponent, const u64* bnModulus, s32 size);
+
+    args:    big number output for result of mod-exp
+             big number input to get mod-exp of
+             big number of exponent
+             big number of modulus
+             size of big number buffers (in u64 units)
+    returns: TRUE if successful
+             FALSE if error
+    """
+    pass
+
+
+def XeCryptBnQwNeModExpRoot(input: int, p: int, q: int, dp: int, dq: int, cr: int) -> int:
+    """
+    Export 360
+
+    bool XeCryptBnQwNeModExpRoot(u64* bnOutput, const u64* bnInput, const u64* P, const u64* Q, const u64* DP, const u64* DQ, const u64* CR, s32 size);
+
+    Encrypts data with parts of the rsa private key
+
+    args:    output data (encrypted data)
+               input data  (unencrypted data)
+               private key - P
+               private key - Q
+               private key - DP
+               private key - DQ
+               private key - CR (chinese remainder)
+               size
+    returns:    TRUE if successful
+               FALSE if error
+    """
+    pass
+
+
+def XeCryptBnQwNeModInv(num: int) -> int:
+    """
+    Export 361
+    ??
+
+    args:    number to calculate mod inverse of ?
+    returns:    calculated value
+    u64 XeCryptBnQwNeModInv(u64 num);
+    """
+    pass
+
+
+def XeCryptBnQwNeModMul(num1: int, num2: int, mod_inv: int, modulus: int) -> int:
+    """
+    Export 362
+    void XeCryptBnQwNeModMul(const u64* bnNum1, const u64* bnNum2, u64* bnOutput, u64 mod_inv, const u64* bnModulus, s32 bigNumSize);
+    """
+    pass
+
+
 def XeCryptRotSum(rotsumctx: RotSumCtx, rotsum_input: bytearray, input_size: int) -> None:
     """
     void XeCryptRotSum(RotSumCtx* rotsum_ctx, u64[] input, size_t input_size);
@@ -176,3 +250,4 @@ def XeCryptRotSumSha(input_1: bytearray, input_2: bytearray, digest_size=20) -> 
         digest_size = XE_CRYPT_SHA_HASH_SIZE
 
     return sha_ctx.digest()[:digest_size]
+
