@@ -92,7 +92,7 @@ class XeCrypt_PSS_SigScheme(PSS_SigScheme):
     Use :func:`Crypto.Signature.pss.new`.
     """
 
-    def __init__(self, key, mgfunc, saltLen, randfunc):
+    def __init__(self, key: XeCrypt_RSA, mgfunc, saltLen, randfunc):
         """Initialize this PKCS#1 PSS signature scheme object.
 
         :Parameters:
@@ -109,7 +109,8 @@ class XeCrypt_PSS_SigScheme(PSS_SigScheme):
           randfunc : callable
             A function that returns random bytes.
         """
-        super(XeCrypt_PSS_SigScheme).__init__(key, mgfunc, saltLen, randfunc)
+        super(XeCrypt_PSS_SigScheme, self).__init__(key, mgfunc, saltLen, randfunc)
+        self.key = key
 
     def XeCryptBnQwBeSigFormat(self, hash_input: bytes, salt: bytes) -> XeCrypt_Sig:
         """
@@ -139,10 +140,10 @@ class XeCrypt_PSS_SigScheme(PSS_SigScheme):
         :param salt: 10 byte arbitrary data
         :return: bytes representing XeCrypt_PSS_Sig Struct
         """
-        if not (self.cqw == 0x00000020):
+        if not (self.key.size_in_bits() == 2048):  # cqw == 0x00000020
             raise ValueError('Invalid cqw')
 
-        if not (self.dwPubExp == 0x00010001 or self.dwPubExp == 0x00000011):
+        if not (self.key.e == 0x00010001 or self.key.e == 0x00000011):
             raise ValueError('Invalid public exponent')
 
         output = bytearray(0x100)
@@ -409,6 +410,7 @@ def XeCryptBnQwBeSigFormat(hash_input: bytes, salt: bytes, key: XeCrypt_PSS_SigS
     :param key: implements logic using pycryptodome PSS_SigScheme object
     :return: bytes representing XeCrypt_PSS_Sig Struct
     """
+    raise NotImplementedError('')
     return key.XeCryptBnQwBeSigFormat(hash_input, salt)
 
 
@@ -425,6 +427,19 @@ def XeCryptBnQwBeSigCreate(hash_input: bytes, salt: bytes, key: XeCrypt_PSS_SigS
     :return: bytes representing XeCrypt_PSS_Sig Struct
     """
     return key.XeCryptBnQwBeSigCreate(hash_input, salt)
+
+
+def XeCryptBnQwBeSigVerify(sig: bytes, hash: bytes, salt: bytes, key: XeCrypt_RSA) -> bool:
+    """
+    Export 358
+
+    bool XeCryptBnQwBeSigVerify(XeCrypt_PSS_Sig* pSig, const u8* pbHash, const u8* pbSalt, const XECRYPT_RSA* pKey);
+
+    returns:   TRUE if successful
+               FALSE if error
+    """
+    raise NotImplementedError('')
+    pass
 
 
 def Old_XeCryptBnQwBeSigFormat(hash_input: bytes, salt: bytes) -> bytes:
@@ -491,7 +506,7 @@ def Old_XeCryptBnQwBeSigFormat(hash_input: bytes, salt: bytes) -> bytes:
     return XeCrypt_Sig.from_bytes(bytes(output))
 
 
-def Old_XeCryptBnQwBeSigCreate(hash_input: bytes, salt: bytes, key: XeCrypt_PSS_SigScheme) -> bytes:
+def Old_XeCryptBnQwBeSigCreate(hash_input: bytes, salt: bytes, sig_key: XeCrypt_PSS_SigScheme) -> bytes:
     """
     Export 356
 
@@ -505,49 +520,38 @@ def Old_XeCryptBnQwBeSigCreate(hash_input: bytes, salt: bytes, key: XeCrypt_PSS_
 
     :param hash_input: 20 byte digest
     :param salt: 10 byte arbitrary data
-    :param key: implements logic using pycryptodome PSS_SigScheme object
+    :param sig_key: implements logic using pycryptodome PSS_SigScheme object
     :return: bytes representing XeCrypt_PSS_Sig Struct
 
     """
-    if not (key.cqw == 0x00000020):
+    if not (sig_key.key.size_in_bytes() // 8 == 0x00000020):  # cqw == 0x20
         raise ValueError('Invalid cqw')
 
-    if not (key.dwPubExp == 0x00010001 or key.dwPubExp == 0x00000011):
+    if not (sig_key.key.e == 0x00010001 or sig_key.key.e == 0x00000011):
         raise ValueError('Invalid public exponent')
 
     output = XeCryptBnQwBeSigFormat(hash_input, salt)
     output_bn = int.from_bytes(XeCryptBnQw_SwapLeBe(output[0:0x20], 0x4), byteorder='little')
 
-    # Ensure large enough modulus to encrypt data
-    if XeCryptBnQwNeCompare(output_bn, key.aqwM) > 0:
-        raise ValueError('Invalid sigformat output')
+    # Ensure large enough modulus to encrypt data. Modulus (n) must be >= sig
+    #if XeCryptBnQwNeCompare(output_bn, sig_key.key.n):
+    #    raise ValueError('Invalid sigformat output')
 
     buffer320 = bytearray(0x20 * 8)
     buffer320[0:0x20] = [0] * 0x20 * 8  # XeCryptBnQw_Zero
 
-    r11 = 0x00000000FFFFFFFF & key.dwPubExp
+    r11 = 0x00000000FFFFFFFF & sig_key.dwPubExp
     r11 -= 1
-    r11 = r11 << 11 & 0xFFFFFFFF00000000  # slwi r11, r11, 11
+    r11 = (r11 << 11) & 0x00000000FFFFFFFF  # slwi r11, r11, 11
     buffer320[0:8] = r11.to_bytes(8, byteorder='big', signed=False)
-    bn320 = r11
 
     buffer220 = bytearray(0x20 * 8)
     buffer220[0:0x20] = [0] * 0x20 * 8  # XeCryptBnQw_Zero
     r11 = 2
     buffer220[0:8] = r11.to_bytes(8, byteorder='big', signed=False)
-    bn220 = r11
 
-    bn320 = (bn220 ^ bn320) % key.aqwM  # XeCryptBnQwNeModExp(bn_320, bn_220, bn_320, mod)
+    bn320 = XeCryptBnQwNeModExp(bn_220, bn_320, sig_key.n)  # XeCryptBnQwNeModExp(bn320, bn220, bn320, mod, cqw)
 
+    bn220 = XeCryptBnQwNeMul(bn_320, sig)  # XeCryptBnQwNeMul(bn220, bn320, psig, cqw)
 
-def XeCryptBnQwBeSigVerify(sig: bytes, hash: bytes, salt: bytes, key: XeCrypt_RSA) -> bool:
-    """
-    Export 358
-
-    bool XeCryptBnQwBeSigVerify(XeCrypt_PSS_Sig* pSig, const u8* pbHash, const u8* pbSalt, const XECRYPT_RSA* pKey);
-
-    returns:   TRUE if successful
-               FALSE if error
-    """
-    pass
-
+    bn220 = XeCryptBnQwNeMod(mod, sig, 2 * cqw, cqw)  # XeCryptBnQwNeMod(bn220, mod, psig, 2 * cqw, cqw)

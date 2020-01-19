@@ -82,11 +82,11 @@ class XeCrypt_RSA(RSA.RsaKey):
         struct XECRYPT_RSAPRV_1024 { // [sizeof = 464]
             XECRYPT_RSA Rsa; // data +0x00 [sizeof=16]
             unsigned __int64 aqwM[cqw]; // data +0x10 [sizeof=8cqw]
-            unsigned __int64 aqwP[cqw//2]; // data +0x10 + 8cqw + 0 * (cqw//2) [sizeof=8cqw//2]
-            unsigned __int64 aqwQ[cqw//2]; // data +0x10 + 8cqw + 1 * (cqw//2) [sizeof=8cqw//2]
-            unsigned __int64 aqwDP[cqw//2]; // data +0x10 + 8cqw + 2 * (cqw//2) [sizeof=8cqw//2]
-            unsigned __int64 aqwDQ[cqw//2]; // data +0x10 + 8cqw + 3 * (cqw//2) [sizeof=8cqw//2]
-            unsigned __int64 aqwCR[cqw//2]; // data +0x10 + 8cqw + 4 * (cqw//2) [sizeof=8cqw//2]
+            unsigned __int64 aqwP[cqw//2]; // data +0x10 + 8cqw + 0 * (8cqw//2) [sizeof=8cqw//2]
+            unsigned __int64 aqwQ[cqw//2]; // data +0x10 + 8cqw + 1 * (8cqw//2) [sizeof=8cqw//2]
+            unsigned __int64 aqwDP[cqw//2]; // data +0x10 + 8cqw + 2 * (8cqw//2) [sizeof=8cqw//2]
+            unsigned __int64 aqwDQ[cqw//2]; // data +0x10 + 8cqw + 3 * (8cqw//2) [sizeof=8cqw//2]
+            unsigned __int64 aqwCR[cqw//2]; // data +0x10 + 8cqw + 4 * (8cqw//2) [sizeof=8cqw//2]
         };
         """
         if len(key) < 0x10:
@@ -295,15 +295,33 @@ class XeCrypt_RSA(RSA.RsaKey):
 
         """
         # Encrypt each qw in the plaintext a^b mod m
-        cipher_text = bytearray(len(message_input))
-        for i in range(len(message_input) // 8):
-            offset = i * 8
+        plain_int = XeCryptBnQw_toInt(message_input)
+        cipher_int = self._encrypt(plain_int)
+        cipher_bn = XeCryptBnQw(cipher_int, len(message_input))
+        return cipher_bn
 
-            u64 = struct.unpack(">Q", message_input[offset:offset + 8])[0]
-            cipher_block = self._encrypt(u64)
-            cipher_text[offset:offset + 8] = cipher_block
 
-        return bytes(cipher_text)
+    def Old_XeCryptBnQwNeRsaPrvCrypt(self, message_input: bytes) -> bytes:
+        """
+        Export 364
+
+        bool XeCryptBnQwNeRsaPrvCrypt(const u64* message_input, u64* output, const XeRsaKey* key);
+
+        Encrypt a given Bn message_input with private key in u64 blocks
+
+        returns:   TRUE if successful
+                   FALSE if error
+
+        """
+        r10 = cqw
+
+        r5 = self.p
+        r6 = self.q
+
+
+
+        XeCryptBnQwNeModExpRoot()
+
 
     def XeCryptBnQwNeRsaPubCrypt(self, message_input: bytes) -> bytes:
         """

@@ -4,6 +4,7 @@ from lib.keys import XEKEY_RSA_PRIV_2048_LIVE_DEVKIT_4BL, BL_SALT
 from lib.xecrypt_pss import (XeCryptBnQwBeSigFormat, XeCryptBnQwBeSigCreate,
                              Old_XeCryptBnQwBeSigCreate, Old_XeCryptBnQwBeSigFormat,
                              XeCrypt_Sig)
+from lib import xecrypt_pss
 
 
 class TestXeCryptBnQwBeSigCreate(TestCase):
@@ -12,7 +13,7 @@ class TestXeCryptBnQwBeSigCreate(TestCase):
             [0x37, 0xd3, 0xb6, 0xb8, 0x4e, 0x35, 0x08, 0x0a, 0xe5, 0xf9, 0x60, 0xfd, 0xbf, 0x44, 0x26, 0x06, 0x54, 0x02,
              0x7e, 0x5b])
 
-        signkey = XEKEY_RSA_PRIV_2048_LIVE_DEVKIT_4BL
+        signkey = xecrypt_pss.new(XEKEY_RSA_PRIV_2048_LIVE_DEVKIT_4BL)
         salt = BL_SALT
 
         output = bytes(
@@ -125,11 +126,7 @@ class test_XeCryptBnQwNePrvCrypt(TestCase):
          0x01])
 
     def test_normal(self):
-        self.fail()
-        self.assertEqual(XeCryptBnQwNeRsaPrvCrypt(self.tempsig, self.signkey), self.output)
-
-    def test_rsa(self):
-        self.assertEqual(self.signkey.rsa.encrypt(self.tempsig, None), self.output)
+        self.assertEqual(self.signkey.XeCryptBnQwNeRsaPrvCrypt(self.tempsig), self.output)
 
 
 class TestXeCryptBnQwBeSigFormat(TestCase):

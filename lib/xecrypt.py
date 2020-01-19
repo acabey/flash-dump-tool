@@ -54,6 +54,21 @@ def XeCryptBnQw(n: int, size_bytes: int) -> bytes:
     return XeCryptBnQw_SwapLeBe(n.to_bytes(size_bytes, byteorder='little', signed=False), size_bytes // 8)
 
 
+def XeCryptBnQwNeMod(bn_input: bytes, bn_modulus: bytes, cqw_input: int, cqw_modulus: int):
+    """
+    Returns bn_input % bn_modulus
+
+    bool XeCryptBnQwNeMod(u64* aqwA, u64* aqwB, u64* aqwM, u32 cqwA, u32 cqwM);
+
+    :param bn_input:
+    :param bn_modulus:
+    :param cqw_input:
+    :param cqw_modulus:
+    :return:
+    """
+    return XeCryptBnQw(XeCryptBnQw_toInt(bn_input) % XeCryptBnQw_toInt(bn_modulus), cqw_modulus * 8)
+
+
 def XeCryptBnQw_toInt(bn: bytes) -> int:
     """
     Utility function to convert a given quadword (Qw) Big Number (Bn) to the Python native int representation.
@@ -124,7 +139,7 @@ def XeCryptBnQwNeModExp(input: int, exponent: int, modulus: int) -> int:
     returns: TRUE if successful
              FALSE if error
     """
-    pass
+    raise NotImplementedError()
 
 
 def XeCryptBnQwNeModExpRoot(input: int, p: int, q: int, dp: int, dq: int, cr: int) -> int:
@@ -146,7 +161,7 @@ def XeCryptBnQwNeModExpRoot(input: int, p: int, q: int, dp: int, dq: int, cr: in
     returns:    TRUE if successful
                FALSE if error
     """
-    pass
+    raise NotImplementedError()
 
 
 def XeCryptBnQwNeModInv(num: int) -> int:
@@ -158,7 +173,7 @@ def XeCryptBnQwNeModInv(num: int) -> int:
     returns:    calculated value
     u64 XeCryptBnQwNeModInv(u64 num);
     """
-    pass
+    raise NotImplementedError()
 
 
 def XeCryptBnQwNeModMul(num1: int, num2: int, mod_inv: int, modulus: int) -> int:
@@ -166,7 +181,7 @@ def XeCryptBnQwNeModMul(num1: int, num2: int, mod_inv: int, modulus: int) -> int
     Export 362
     void XeCryptBnQwNeModMul(const u64* bnNum1, const u64* bnNum2, u64* bnOutput, u64 mod_inv, const u64* bnModulus, s32 bigNumSize);
     """
-    pass
+    raise NotImplementedError()
 
 
 def XeCryptRotSum(rotsumctx: RotSumCtx, rotsum_input: bytearray, input_size: int) -> None:
