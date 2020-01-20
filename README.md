@@ -88,39 +88,33 @@ Convert big endian, bignumber formatted XeCryptRSA objects (binary) to PEM files
     
 ## xersa2pem Usage
 
-    usage: XeRSA2PEM [-h] -t {public,private} [-s {1024,1536,2048,4096,guess}]
-                     [-r] [-v] [-d]
-                     xersaobj pempath
+    usage: XeRSA2PEM [-h] [-r] [-v] [-d] xersaobj pempath
     
     Parse big-endian XeRSA* struct formatted binaries into PEM files
     
     positional arguments:
-      xersaobj              Path to XeRSA* struct formatted binary file
-      pempath               Path to PEM output file
+      xersaobj       Path to XeRSA* struct formatted binary file
+      pempath        Path to PEM output file
     
     optional arguments:
-      -h, --help            show this help message and exit
-      -t {public,private}, --type {public,private}
-                            Type of XeRSA object
-      -s {1024,1536,2048,4096,guess}, --size {1024,1536,2048,4096,guess}
-                            Size of XeRSA key
-      -r, --reverse         Reverse process: PEM to binary file
-      -v, --verbose         Set verbose-level output
-      -d, --debug           Set debug-level output
+      -h, --help     show this help message and exit
+      -r, --reverse  Reverse process: PEM to binary file
+      -v, --verbose  Set verbose-level output
+      -d, --debug    Set debug-level output
     
     Example Usage:
     
     Convert 4096-bit private key (XeRsaPriv4096) binary file to pem:
     
-      python3 xersa2pem.py -t private -s 4096 XeRsaPriv4096.bin XeRsaPriv4096.pem
+      python3 xersa2pem.py XeRsaPriv4096.bin XeRsaPriv4096.pem
     
     Convert unknown size private key binary file to pem:
     
-      python3 xersa2pem.py -t private -s guess XeRsaPriv.bin XeRsaPriv.pem
+      python3 xersa2pem.py XeRsaPriv.bin XeRsaPriv.pem
     
     Convert unknown size private key binary file to pem:
     
-      python3 xersa2pem.py -t private -s guess XeRsaPriv.bin XeRsaPriv.pem
+      python3 xersa2pem.py XeRsaPriv.bin XeRsaPriv.pem
     
     Convert key PEM file to appropriate binary:
     
